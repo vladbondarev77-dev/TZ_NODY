@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Конструктор ТЗ — Кухня</title>
+<!-- ExcelJS завантажується динамічно лише при натисканні "Завантажити Excel" (див. нижче),
+     щоб проблеми з зовнішнім CDN ніколи не блокували роботу самого конструктора/форми. -->
+<style>
+  :root{
+    --bg:#14171c; --panel:#1c2028; --panel-2:#22262f; --line:#2e3340;
+    --text:#e9ecf1; --muted:#8b93a3; --accent:#3fa9f5; --accent-dim:#1f4a63;
+    --good:#4ecb8f; --warn:#ff9d4d; --warn-bg:#3a2712; --warn-line:#7a4a1a;
+    --danger:#e5566b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,sans-serif;display:flex;justify-content:center;padding:28px 16px;}
+  .app{width:100%;max-width:920px;}
+  header{margin-bottom:18px;}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;}
+  h1{font-size:26px;margin:6px 0 4px;font-weight:700;}
+  header p{color:var(--muted);margin:0;font-size:14px;}
+
+  .tabs{display:flex;gap:6px;margin:20px 0;border-bottom:1px solid var(--line);}
+  .tab{padding:10px 16px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;}
+  .tab.active{color:var(--text);border-color:var(--accent);}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 26px;}
+  .step-title{font-size:20px;font-weight:700;margin:0 0 6px;}
+  .step-count{color:var(--muted);font-size:13px;margin-bottom:2px;}
+  .progress{display:flex;gap:6px;margin:16px 0 22px;}
+  .progress .seg{flex:1;height:4px;border-radius:2px;background:var(--line);}
+  .progress .seg.done{background:var(--accent);}
+
+  .field{margin-bottom:18px;}
+  .field.nested{margin:10px 0 0 18px;padding:12px 14px;background:var(--panel-2);border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:8px;}
+  .field label{display:block;font-size:14px;font-weight:600;margin-bottom:6px;}
+  .field.nested label{font-size:13px;}
+  .options{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:2px;}
+  .opt{padding:8px 14px;border-radius:20px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:13px;cursor:pointer;}
+  .opt.selected{background:var(--accent-dim);border-color:var(--accent);color:#cfe9ff;}
+  input[type=text], textarea, select{width:100%;padding:9px 11px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;font-family:inherit;}
+  textarea{resize:vertical;min-height:40px;}
+  input:focus, textarea:focus, select:focus{outline:none;border-color:var(--accent);}
+  .warn-banner{margin-top:10px;padding:10px 14px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:8px;color:var(--warn);font-size:13px;font-weight:600;display:flex;gap:8px;}
+  .note-banner{padding:12px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:8px;color:#cfe9ff;font-size:14px;font-weight:600;}
+  .error-banner{margin-bottom:16px;padding:12px 14px;background:var(--warn-bg);border:1px solid var(--danger);border-radius:8px;color:#ffb3bd;font-size:13px;font-weight:600;}
+  .warn-banner::before{content:"⚠";}
+  .nav{display:flex;justify-content:space-between;margin-top:22px;}
+  button.btn{padding:10px 18px;border-radius:9px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;}
+  button.btn.primary{background:var(--accent);border-color:var(--accent);color:#08131c;}
+  button.btn.danger{background:transparent;border-color:var(--danger);color:var(--danger);}
+  button.btn:disabled{opacity:.35;cursor:default;}
+  .summary pre{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:16px;white-space:pre-wrap;font-family:'Consolas',monospace;font-size:12.5px;line-height:1.6;color:#d6dae2;}
+
+  /* Constructor */
+  .block-card{border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px;background:var(--panel-2);}
+  .block-card h3{margin:0 0 10px;font-size:16px;}
+  .block-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;}
+  .field-editor{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--panel);}
+  .field-editor .row{display:flex;gap:8px;margin-bottom:8px;}
+  .field-editor .row > *{flex:1;}
+  .small-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;display:block;}
+  .followup-box{margin-top:10px;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;}
+  .toolbar{display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--good);color:#062a1a;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;}
+  .toast.show{opacity:1;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .checkbox-row input{width:auto;}
+  .hint{font-size:12px;color:var(--muted);margin:-4px 0 8px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">Генератор ТЗ для конструктора</div>
+    <h1>Кухня</h1>
+    <p>Редагуйте питання, заповнюйте ТЗ, вивантажуйте готовий Excel — все зберігається автоматично.</p>
+  </header>
+
+  <div class="tabs" id="tabsBar"></div>
+
+  <div class="card" id="card"></div>
+</div>
+
+<div class="toast" id="toast">Збережено</div>
+
+<script>
+/* ============ ШАР СУМІСНОСТІ ЗІ СХОВИЩЕМ ============
+   У Claude-артефактах доступний window.storage (спільне/особисте сховище на сервері).
+   Поза Claude (напр. на GitHub Pages) такого API немає — тому якщо його ще не визначено,
+   підміняємо власною реалізацією на основі localStorage. Працює так само (get/set/delete/list),
+   але дані лишаються тільки в браузері цього користувача на цьому пристрої — тобто "спільна"
+   схема питань і архів проєктів у такому режимі СПІЛЬНІ лише в межах одного браузера,
+   а не між усіма співробітниками, як було б через window.storage. */
+if(!window.storage){
+  window.storage = {
+    async get(key, shared){
+      if(!Object.prototype.hasOwnProperty.call(localStorage, key)) throw new Error('key not found: ' + key);
+      const value = localStorage.getItem(key);
+      return { key, value, shared: !!shared };
+    },
+    async set(key, value, shared){
+      localStorage.setItem(key, value);
+      return { key, value, shared: !!shared };
+    },
+    async delete(key, shared){
+      const existed = Object.prototype.hasOwnProperty.call(localStorage, key);
+      localStorage.removeItem(key);
+      return { key, deleted: existed, shared: !!shared };
+    },
+    async list(prefix, shared){
+      const keys = Object.keys(localStorage).filter(k => !prefix || k.startsWith(prefix));
+      return { keys, prefix, shared: !!shared };
+    }
+  };
+}
+
+/* ============ СХЕМА ЗА ЗАМОВЧУВАННЯМ ============ */
+const DEFAULT_SHOPS = ["ВІЯР","БЛЮМ","КРОНАС","ОВВА"];
+
+function pid(){ return 'p' + Math.random().toString(36).slice(2,9); }
+
+function defaultSchema(){
+  return {
+    shops: DEFAULT_SHOPS.slice(),
+    profiles: [
+      { id: pid(), name: 'Кухня', steps: [] },
+      { id: pid(), name: 'Шафа-купе', steps: [] },
+      { id: pid(), name: 'Санвузол', steps: [] }
+    ]
+  };
+}
+
+let schema = defaultSchema();
+let answers = {};
+let projects = []; // {id, profileId, profileName, clientName, answers, createdAt}
+let currentProfileId = schema.profiles[0].id;
+let activeTab = 'builder';
+let wizardStep = 0;
+let toastTimer = null;
+
+window.addEventListener('error', (e)=>{
+  // Загальні "Script error." від cross-origin CDN-скриптів не несуть корисної інформації —
+  // ігноруємо їх у консолі. Реальні помилки нашого коду логуємо для діагностики.
+  if(e && e.message && e.message !== 'Script error.'){
+    console.error('Помилка в застосунку:', e.message, e.filename, e.lineno);
+  }
+});
+
+/* ============ STORAGE ============ */
+/* Схему питань роблю СПІЛЬНОЮ (shared:true) — щоб усі, хто відкриває
+   посилання, бачили ті самі питання, які ви налаштували.
+   Відповіді (answers) лишаються ОСОБИСТИМИ (shared:false) — заповнення
+   одного менеджера не затирає заповнення іншого. */
+async function loadState(){
+  try{
+    const s = await window.storage.get('schema', true);
+    if(s && s.value) schema = JSON.parse(s.value);
+  }catch(e){}
+  if(!schema.shops || !schema.shops.length) schema.shops = DEFAULT_SHOPS.slice();
+  // Міграція старого формату (плаский schema.steps без профілів) — загортаємо в один профіль "Кухня"
+  if(!schema.profiles || !Array.isArray(schema.profiles) || !schema.profiles.length){
+    const legacySteps = Array.isArray(schema.steps) ? schema.steps : [];
+    schema.profiles = [{ id: pid(), name: 'Кухня', steps: legacySteps }];
+    delete schema.steps;
+  }
+  try{
+    const a = await window.storage.get('answers');
+    if(a && a.value) answers = JSON.parse(a.value);
+  }catch(e){}
+  try{
+    const pr = await window.storage.get('projects', true);
+    if(pr && pr.value) projects = JSON.parse(pr.value);
+  }catch(e){}
+  try{
+    const cp = await window.storage.get('currentProfileId');
+    if(cp && cp.value && schema.profiles.some(p=>p.id===cp.value)){
+      currentProfileId = cp.value;
+    } else {
+      currentProfileId = schema.profiles[0].id;
+    }
+  }catch(e){
+    currentProfileId = schema.profiles[0].id;
+  }
+}
+function getProfile(id){ return (schema.profiles||[]).find(p=>p.id===id); }
+function currentProfile(){
+  let p = getProfile(currentProfileId);
+  if(!p && schema.profiles && schema.profiles.length){
+    p = schema.profiles[0];
+    currentProfileId = p.id;
+  }
+  return p;
+}
+async function saveCurrentProfileId(){
+  try{ await window.storage.set('currentProfileId', currentProfileId); }catch(e){}
+}
+function setCurrentProfile(id){
+  currentProfileId = id;
+  wizardStep = 0;
+  wizardValidationError = null;
+  saveCurrentProfileId();
+  render();
+}
+async function saveSchema(){
+  try{ await window.storage.set('schema', JSON.stringify(schema), true); showToast('Схему збережено'); }catch(e){}
+}
+async function saveAnswers(){
+  try{ await window.storage.set('answers', JSON.stringify(answers)); }catch(e){}
+}
+async function saveProjects(){
+  try{ await window.storage.set('projects', JSON.stringify(projects), true); }catch(e){}
+}
+function currentProfileAnswerKeys(){
+  const prefix = currentProfileId + '.';
+  return Object.keys(answers).filter(k=>k.startsWith(prefix));
+}
+function saveCurrentAsProject(){
+  const keys = currentProfileAnswerKeys();
+  if(!keys.length){
+    alert('Спершу заповніть хоча б одне поле, перш ніж зберігати проєкт.');
+    return;
+  }
+  const clientName = prompt('Назва проєкту (напр. ім\'я клієнта чи адреса об\'єкта):');
+  if(!clientName) return;
+  const snapshot = {};
+  keys.forEach(k=>{ snapshot[k] = answers[k]; });
+  projects.push({
+    id: pid(),
+    profileId: currentProfileId,
+    profileName: currentProfile().name,
+    clientName: clientName.trim(),
+    answers: snapshot,
+    createdAt: new Date().toISOString()
+  });
+  saveProjects();
+  showToast('Проєкт збережено в архів');
+  render();
+}
+function startNewProject(){
+  const keys = currentProfileAnswerKeys();
+  if(keys.length && !confirm('Почати нове ТЗ? Поточне незбережене заповнення для профілю «'+currentProfile().name+'» буде очищено (якщо хочете його зберегти — спершу натисніть «Зберегти як проєкт»).')) return;
+  keys.forEach(k=>delete answers[k]);
+  saveAnswers();
+  wizardStep = 0;
+  wizardValidationError = null;
+  activeTab = 'wizard';
+  renderTabBar();
+  render();
+  showToast('Нове ТЗ розпочато');
+}
+function loadProject(id){
+  const proj = projects.find(p=>p.id===id);
+  if(!proj) return;
+  if(currentProfileAnswerKeys().length && !confirm('Відкрити цей проєкт? Поточне незбережене заповнення для цього профілю буде замінено.')) return;
+  currentProfileAnswerKeys().forEach(k=>delete answers[k]);
+  if(schema.profiles.some(p=>p.id===proj.profileId)){
+    currentProfileId = proj.profileId;
+    saveCurrentProfileId();
+  }
+  Object.assign(answers, proj.answers);
+  saveAnswers();
+  wizardStep = 0;
+  wizardValidationError = null;
+  activeTab = 'summary';
+  renderTabBar();
+  render();
+  showToast(`Проєкт «${proj.clientName}» відкрито`);
+}
+function deleteProject(id){
+  const proj = projects.find(p=>p.id===id);
+  if(!proj) return;
+  if(!confirm(`Видалити проєкт «${proj.clientName}» з архіву? Це не можна відмінити.`)) return;
+  projects = projects.filter(p=>p.id!==id);
+  saveProjects();
+  render();
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/* ============ TABS ============ */
+function renderTabBar(){
+  const bar = document.getElementById('tabsBar');
+  const tabs = [
+    { id:'builder', label:'⚙ Конструктор питань' },
+    { id:'wizard', label:'📝 Заповнення' },
+    { id:'summary', label:'📄 ТЗ / Excel' }
+  ];
+  bar.innerHTML = tabs.map(t=>`<div class="tab${t.id===activeTab?' active':''}" data-tab="${t.id}">${t.label}</div>`).join('');
+  bar.querySelectorAll('.tab').forEach(tabEl=>{
+    tabEl.addEventListener('click', ()=>{
+      activeTab = tabEl.dataset.tab;
+      renderTabBar();
+      render();
+    });
+  });
+}
+
+/* ============ WIZARD (заповнення) ============ */
+function selectOption(key, value){
+  answers[key] = value;
+  saveAnswers();
+  wizardValidationError = null;
+  render();
+}
+function esc(s){ return (s||'').toString().replace(/"/g,'&quot;'); }
+function isCriticalValue(critical, value){
+  if(!critical || value===undefined || value===null || value==='') return false;
+  if(Array.isArray(critical.whenValues)) return critical.whenValues.includes(value);
+  if(critical.whenValue) return critical.whenValue === value; // старий формат, для сумісності
+  return false;
+}
+function resolveValue(key, f){
+  if(f.type==='mixed'){
+    const raw = answers[key];
+    if(raw==='__other__') return answers[key+'.custom'] || '';
+    return raw || '';
+  }
+  return answers[key];
+}
+function labelHTML(f){
+  return f.label + (f.required ? ' <span style="color:#e5566b;">*</span>' : '');
+}
+function fieldHTML(f, parentKey){
+  const key = parentKey ? `${parentKey}.${f.id}` : f.id;
+  const nestedClass = parentKey ? ' nested' : '';
+  let html = '';
+  if(f.type==='note'){
+    // Нагадування — просто текст на видноті, без поля вводу і без прив'язки до відповіді
+    return `<div class="field${nestedClass}"><div class="note-banner">📌 ${f.label}</div></div>`;
+  }
+  if(f.type==='options'){
+    const opts = (f.options||[]).map(o=>{
+      const sel = answers[key]===o.label ? ' selected' : '';
+      return `<div class="opt${sel}" onclick="selectOption('${key}', '${o.label.replace(/'/g,"\\'")}')">${o.label}</div>`;
+    }).join('');
+    html += `<div class="field${nestedClass}"><label>${labelHTML(f)}</label><div class="options">${opts}</div>`;
+    if(f.critical && isCriticalValue(f.critical, answers[key])){
+      html += `<div class="warn-banner">${f.critical.message}</div>`;
+    }
+    html += `</div>`;
+  } else if(f.type==='mixed'){
+    const raw = answers[key] || '';
+    const opts = (f.options||[]).map(o=>`<option value="${o.label}" ${raw===o.label?'selected':''}>${o.label}</option>`).join('');
+    html += `<div class="field${nestedClass}"><label>${labelHTML(f)}</label>
+      <select onchange="selectOption('${key}', this.value)">
+        <option value="">— оберіть —</option>
+        ${opts}
+        <option value="__other__" ${raw==='__other__'?'selected':''}>Інше (вписати вручну)</option>
+      </select>`;
+    if(raw==='__other__'){
+      html += `<input style="margin-top:8px;" type="text" data-field="${key}.custom" placeholder="вписати вручну" value="${esc(answers[key+'.custom'])}">`;
+    }
+    if(f.critical){
+      const resolved = resolveValue(key, f);
+      if(isCriticalValue(f.critical, resolved)){
+        html += `<div class="warn-banner">${f.critical.message}</div>`;
+      }
+    }
+    html += `</div>`;
+  } else if(f.type==='textarea'){
+    html += `<div class="field${nestedClass}"><label>${labelHTML(f)}</label>
+      <textarea data-field="${key}" placeholder="${f.placeholder||''}">${answers[key]||''}</textarea></div>`;
+  } else {
+    html += `<div class="field${nestedClass}"><label>${labelHTML(f)}</label>
+      <input type="text" data-field="${key}" placeholder="${f.placeholder||''}" value="${answers[key]||''}"></div>`;
+  }
+  if(f.followUp){
+    const fu = f.followUp;
+    const answered = resolveValue(key, f);
+    const show = answered && (fu.trigger==='*' || fu.trigger===answered);
+    if(show){
+      const nested = Object.assign({ id:'fu' }, fu);
+      html += fieldHTML(nested, key);
+    }
+  }
+  if(f.needsSource && resolveValue(key, f)){
+    html += sourceFieldsHTML(key);
+  }
+  return html;
+}
+
+function sourceFieldsHTML(key){
+  const artKey = key+'.artikul';
+  const shopKey = key+'.shop';
+  const shopOtherKey = key+'.shop_other';
+  const shopVal = answers[shopKey] || '';
+  const shopOpts = (schema.shops||[]).map(s=>`<option value="${s}" ${shopVal===s?'selected':''}>${s}</option>`).join('');
+  let html = `<div class="field nested">
+    <label>Артикул</label>
+    <input type="text" data-field="${artKey}" placeholder="вписати вручну" value="${(answers[artKey]||'').replace(/"/g,'&quot;')}">
+    <label style="margin-top:10px;">Магазин</label>
+    <select data-shopkey="${shopKey}" onchange="onShopChange('${shopKey}', this.value)">
+      <option value="">— оберіть —</option>
+      ${shopOpts}
+      <option value="__other__" ${shopVal==='__other__'?'selected':''}>Інше (вписати вручну)</option>
+    </select>`;
+  if(shopVal==='__other__'){
+    html += `<input style="margin-top:8px;" type="text" data-field="${shopOtherKey}" placeholder="назва магазину" value="${(answers[shopOtherKey]||'').replace(/"/g,'&quot;')}">`;
+  }
+  html += `</div>`;
+  return html;
+}
+function onShopChange(shopKey, val){
+  answers[shopKey] = val;
+  saveAnswers();
+  render();
+}
+function nextStep(){ goTo(wizardStep+1); }
+function goTo(i){
+  const steps = currentProfile().steps;
+  if(i<0 || i>steps.length) return;
+  wizardValidationError = null;
+  wizardStep = i;
+  render();
+}
+let wizardValidationError = null;
+function findMissingRequired(fields, parentKey){
+  let missing = [];
+  fields.forEach(f=>{
+    const key = parentKey ? `${parentKey}.${f.id}` : f.id;
+    if(f.type==='note') return; // нагадування — не питання, валідації не підлягає
+    const val = resolveValue(key, f);
+    if(f.required && !val){
+      missing.push(f.label);
+    }
+    if(f.followUp){
+      const fu = f.followUp;
+      const show = val && (fu.trigger==='*' || fu.trigger===val);
+      if(show){
+        const nested = Object.assign({ id:'fu' }, fu);
+        missing = missing.concat(findMissingRequired([nested], key));
+      }
+    }
+  });
+  return missing;
+}
+function attemptNextStep(){
+  const step = currentProfile().steps[wizardStep];
+  const missing = findMissingRequired(step.fields, currentProfileId);
+  if(missing.length){
+    wizardValidationError = 'Заповніть обов\'язкові поля: ' + missing.join(', ');
+    renderWizard();
+    return;
+  }
+  wizardValidationError = null;
+  nextStep();
+}
+function profileSwitcherHTML(){
+  const pills = (schema.profiles||[]).map(p=>{
+    const sel = p.id===currentProfileId ? ' selected' : '';
+    return `<div class="opt${sel}" onclick="setCurrentProfile('${p.id}')">${p.name}</div>`;
+  }).join('');
+  return `<div class="options" style="margin-bottom:18px;">${pills}</div>`;
+}
+function renderWizard(){
+  const card = document.getElementById('card');
+  const steps = currentProfile().steps;
+
+  if(!steps.length){
+    card.innerHTML = `
+      ${profileSwitcherHTML()}
+      <div class="step-title">Питань ще немає</div>
+      <p style="color:var(--muted);font-size:14px;">Перейдіть на вкладку «⚙ Конструктор питань» і додайте перший розділ та питання для профілю «${currentProfile().name}» — після цього тут з'явиться форма для заповнення.</p>
+      <div class="nav"><button class="btn primary" onclick="activeTab='builder';renderTabBar();render();">Перейти до конструктора</button></div>`;
+    return;
+  }
+
+  const total = steps.length + 1; // + summary-in-wizard not needed, summary is separate tab
+  const progWrap = [];
+  for(let i=0;i<steps.length;i++) progWrap.push(`<div class="seg${i<=wizardStep?' done':''}"></div>`);
+
+  if(wizardStep >= steps.length){
+    card.innerHTML = `
+      ${profileSwitcherHTML()}
+      <div class="step-title">Готово ✅</div>
+      <p style="color:var(--muted);font-size:14px;">Усі кроки заповнено. Перейдіть на вкладку «ТЗ / Excel», щоб переглянути підсумок і завантажити файл.</p>
+      <div class="nav"><button class="btn" onclick="goTo(wizardStep-1)">Назад</button>
+      <button class="btn primary" onclick="activeTab='summary';renderTabBar();render();">Перейти до ТЗ</button></div>`;
+    return;
+  }
+
+  const step = steps[wizardStep];
+  const fieldsHTML = step.fields.map(f=>fieldHTML(f, currentProfileId)).join('');
+  const errorHTML = wizardValidationError ? `<div class="error-banner">⚠ ${wizardValidationError}</div>` : '';
+  card.innerHTML = `
+    ${profileSwitcherHTML()}
+    <div class="progress">${progWrap.join('')}</div>
+    <div class="step-count">Крок ${wizardStep+1} з ${steps.length}</div>
+    <div class="step-title">${step.title}</div>
+    ${errorHTML}
+    ${fieldsHTML}
+    <div class="nav">
+      <button class="btn" onclick="goTo(wizardStep-1)" ${wizardStep===0?'disabled':''}>Назад</button>
+      <button class="btn primary" onclick="attemptNextStep()">${wizardStep===steps.length-1?'Завершити':'Далі'}</button>
+    </div>`;
+  card.querySelectorAll('input[type=text], textarea').forEach(el=>{
+    el.addEventListener('input', e=>{
+      const field = e.target.dataset.field;
+      answers[field] = e.target.value;
+      wizardValidationError = null;
+      saveAnswers();
+
+      const selStart = e.target.selectionStart;
+      const selEnd = e.target.selectionEnd;
+      renderWizard();
+      const newEl = card.querySelector(`[data-field="${field}"]`);
+      if(newEl){
+        newEl.focus();
+        if(typeof newEl.setSelectionRange === 'function'){
+          try{ newEl.setSelectionRange(selStart, selEnd); }catch(e){}
+        }
+      }
+    });
+  });
+}
+
+/* ============ SUMMARY ============ */
+function resolveShop(key){
+  const shopVal = answers[key+'.shop'];
+  if(!shopVal) return '';
+  if(shopVal==='__other__') return answers[key+'.shop_other'] || '';
+  return shopVal;
+}
+function collectFlatAnswers(){
+  // Повертає { rows, checklist }
+  // rows: одна річ (матеріал/фурнітура) = один рядок; уточнення без власної закупівлі
+  // згортаються в row.details, а не стають окремими рядками.
+  // checklist: усі критичні пункти для перепровірки конструктором (наскрізний список).
+  const rows = [];
+  const checklist = [];
+
+  function walk(f, parentKey, block, parentRow){
+    if(f.type==='note') return; // нагадування не є відповіддю — в ТЗ не потрапляє
+    const key = parentKey ? `${parentKey}.${f.id}` : f.id;
+    const value = resolveValue(key, f);
+
+    // Власний рядок отримує: (а) усе, що на верхньому рівні розділу, або
+    // (б) будь-яке уточнення, яке саме по собі є закупівельною позицією (needsSource).
+    const ownsRow = !parentRow || f.needsSource;
+    let row = parentRow;
+
+    if(ownsRow){
+      const opt = (f.options||[]).find(o=>o.label===value);
+      row = { block, label: f.label, value: value || '—', photo: opt?opt.photo:'', critical:null, artikul:'', shop:'', details:[] };
+      if(f.needsSource && value){
+        row.artikul = answers[key+'.artikul'] || '';
+        row.shop = resolveShop(key);
+      }
+      rows.push(row);
+    } else if(value){
+      row.details.push(`${f.label}: ${value}`);
+    }
+
+    if(f.critical && isCriticalValue(f.critical, value)){
+      const msg = `${f.label} — ${value}: ${f.critical.message}`;
+      checklist.push({ block, label: f.label, value, message: f.critical.message });
+      if(row){
+        row.critical = row.critical ? row.critical + ' | ' + f.critical.message : f.critical.message;
+      }
+    }
+
+    if(f.followUp && value){
+      const fu = f.followUp;
+      const show = (fu.trigger==='*' || fu.trigger===value);
+      if(show){
+        const nested = Object.assign({ id:'fu' }, fu);
+        walk(nested, key, block, row);
+      }
+    }
+  }
+
+  currentProfile().steps.forEach(step=>{
+    step.fields.forEach(f=>{
+      walk(f, currentProfileId, step.title, null);
+    });
+  });
+  return { rows, checklist };
+}
+function buildSummaryText(){
+  const { rows, checklist } = collectFlatAnswers();
+  const lines = [`ТЗ ДЛЯ КОНСТРУКТОРА — ${currentProfile().name.toUpperCase()}`, "=".repeat(40)];
+  let lastBlock = '';
+  rows.forEach(r=>{
+    if(r.block !== lastBlock){ lines.push(''); lines.push(r.block.toUpperCase()); lastBlock = r.block; }
+    lines.push(`${r.label}: ${r.value}`);
+    if(r.details.length) lines.push(`  Деталі: ${r.details.join(' • ')}`);
+    if(r.artikul) lines.push(`  Артикул: ${r.artikul}`);
+    if(r.shop) lines.push(`  Магазин: ${r.shop}`);
+  });
+  if(checklist.length){
+    lines.push(''); lines.push('☐ ЧЕК-ЛИСТ ДЛЯ ПЕРЕВІРКИ КОНСТРУКТОРОМ:');
+    checklist.forEach(c=>lines.push(`☐ ${c.label} (${c.value}) — ${c.message}`));
+  }
+  return lines.join('\n');
+}
+function renderSummary(){
+  const card = document.getElementById('card');
+  const text = buildSummaryText();
+  const profileProjects = projects.filter(p=>p.profileId===currentProfileId);
+  const archiveHTML = `
+    <div class="block-card">
+      <h3>📁 Архів проєктів — ${currentProfile().name}</h3>
+      ${profileProjects.length ? profileProjects.slice().reverse().map(p=>`
+        <div class="field-editor" style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;">${esc(p.clientName)}</div>
+            <div style="color:var(--muted);font-size:12px;">${new Date(p.createdAt).toLocaleString('uk-UA')}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn" onclick="loadProject('${p.id}')">Відкрити</button>
+            <button class="btn danger" onclick="deleteProject('${p.id}')">Видалити</button>
+          </div>
+        </div>
+      `).join('') : `<p style="color:var(--muted);font-size:13px;">Ще немає збережених проєктів для цього профілю. Заповніть ТЗ і натисніть «💾 Зберегти як проєкт» нижче — воно зʼявиться тут.</p>`}
+    </div>`;
+
+  card.innerHTML = `
+    ${profileSwitcherHTML()}
+    ${archiveHTML}
+    <div class="step-title">Підсумкове ТЗ — ${currentProfile().name}</div>
+    <div class="summary"><pre id="summaryText">${text}</pre></div>
+    <div class="toolbar">
+      <button class="btn primary" onclick="copySummary()">Скопіювати текст</button>
+      <button class="btn primary" onclick="exportExcel()">⬇ Завантажити Excel</button>
+      <button class="btn" onclick="saveCurrentAsProject()">💾 Зберегти як проєкт</button>
+      <button class="btn danger" onclick="startNewProject()">🆕 Почати нове ТЗ</button>
+    </div>
+    <p class="hint">Excel формується як у вашому робочому шаблоні: кремовий заголовок зверху, зліва — суцільна зона під реальні фото/креслення (вставляєте вручну після завантаження файлу — це не автоматичні іконки товарів), праворуч — таблиці по блоках із кольоровими плашками для магазину. Внизу файлу — окремий чек-лист для старшого конструктора.</p>
+    <p class="hint">«Зберегти як проєкт» кладе поточне заповнення в спільний архів під назвою клієнта/об'єкта — його бачить уся команда. «Почати нове ТЗ» очищає поточну форму цього профілю, щоб узятись за наступного клієнта (не забудьте спершу зберегти, якщо потрібно).</p>
+  `;
+}
+function copySummary(){
+  const text = document.getElementById('summaryText').innerText;
+  navigator.clipboard.writeText(text).then(()=>showToast('Скопійовано в буфер обміну'));
+}
+
+let exceljsLoadPromise = null;
+function ensureExcelJS(){
+  if(typeof ExcelJS !== 'undefined') return Promise.resolve();
+  if(exceljsLoadPromise) return exceljsLoadPromise;
+  exceljsLoadPromise = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+    s.crossOrigin = 'anonymous';
+    s.onload = ()=> resolve();
+    s.onerror = ()=> reject(new Error('Не вдалося завантажити бібліотеку ExcelJS з CDN'));
+    document.head.appendChild(s);
+  });
+  return exceljsLoadPromise;
+}
+
+async function exportExcel(){
+  showToast('Формую Excel...');
+  try{
+    await ensureExcelJS();
+  }catch(e){
+    alert('Не вдалося завантажити бібліотеку для створення Excel (перевірте інтернет-з\'єднання). Спробуйте ще раз, або натисніть "Скопіювати текст", щоб передати ТЗ текстом.');
+    return;
+  }
+  try{
+    await buildAndDownloadExcel();
+  }catch(e){
+    console.error('Помилка формування Excel:', e);
+    alert('Не вдалося сформувати Excel: ' + (e && e.message ? e.message : 'невідома помилка') + '\nСпробуйте ще раз. Якщо повторюється — натисніть кнопку "Скопіювати текст" і надішліть ТЗ текстом.');
+  }
+}
+
+async function buildAndDownloadExcel(){
+  showToast('Формую Excel...');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(`ТЗ ${currentProfile().name}`.slice(0,31), { views:[{ state:'frozen', xSplit:1, ySplit:2 }] });
+
+  const COLORS = {
+    titleBg: 'FFF7E7B8', titleText: 'FF1A1A1A',
+    blockBg: 'FF262B36', blockText: 'FFFFFFFF',
+    headerBg: 'FFECECEC', headerText: 'FF1A1A1A',
+    zebra: 'FFF7F9FC', white: 'FFFFFFFF',
+    critical: 'FFFCE4D6', criticalText: 'FFB35A00',
+    critHeaderBg: 'FFE5566B', critHeaderText: 'FFFFFFFF',
+    border: 'FFD9D9D9',
+    photoBg: 'FFFAFAFA', photoBorder: 'FFC7CCD6', photoText: 'FF9AA3B0'
+  };
+  const PILL_COLORS = {
+    'ВІЯР':'FFFFF176', 'БЛЮМ':'FFFFB74D', 'КРОНАС':'FFB39DDB', 'ОВВА':'FF80CBC4',
+    'ПУР':'FF90CAF9', 'ЕВА':'FFFFCC80', 'ТАК':'FFA5D6A7', 'НІ':'FFEF9A9A'
+  };
+  function pillColorFor(v){
+    if(!v) return null;
+    return PILL_COLORS[v.toString().trim().toUpperCase()] || 'FFE0E0E0';
+  }
+  const thin = { style:'thin', color:{argb:COLORS.border} };
+
+  ws.columns = [
+    { width:44 }, // A — фото
+    { width:28 }, // B — параметр
+    { width:28 }, // C — значення
+    { width:34 }, // D — деталі/уточнення
+    { width:15 }, // E — артикул
+    { width:15 }, // F — магазин
+    { width:8 }   // G — позначка
+  ];
+
+  // Заголовок документа (кремовий, як в оригіналі)
+  ws.mergeCells('A1:G1');
+  const title = ws.getCell('A1');
+  title.value = currentProfile().name;
+  title.font = { size:20, bold:true, color:{argb:COLORS.titleText} };
+  title.alignment = { vertical:'middle', horizontal:'center' };
+  title.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.titleBg} };
+  ws.getRow(1).height = 36;
+
+  ws.mergeCells('B2:G2');
+  const sub = ws.getCell('B2');
+  sub.value = `ТЗ для конструктора · сформовано ${new Date().toLocaleDateString('uk-UA')}`;
+  sub.font = { italic:true, size:10, color:{argb:'FF8B93A3'} };
+  sub.alignment = { horizontal:'left', indent:1 };
+  ws.getRow(2).height = 18;
+
+  let rIdx = 3;
+  let lastBlock = null;
+  let zebra = false;
+  const { rows, checklist } = collectFlatAnswers();
+
+  for(const r of rows){
+    if(r.block !== lastBlock){
+      ws.mergeCells(`B${rIdx}:G${rIdx}`);
+      const bc = ws.getCell(`B${rIdx}`);
+      bc.value = r.block.toUpperCase();
+      bc.font = { bold:true, size:12, color:{argb:COLORS.blockText} };
+      bc.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.blockBg} };
+      bc.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+      ws.getRow(rIdx).height = 22;
+      lastBlock = r.block;
+      rIdx++;
+      zebra = false;
+
+      const hdrs = ['Параметр','Значення','Деталі / уточнення','Артикул','Магазин','⚠'];
+      const hRow = ws.getRow(rIdx);
+      hdrs.forEach((h,i)=>{ hRow.getCell(i+2).value = h; });
+      for(let c=2;c<=7;c++){
+        const cell = hRow.getCell(c);
+        cell.font = { bold:true, color:{argb:COLORS.headerText} };
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.headerBg} };
+        cell.alignment = { vertical:'middle', horizontal:'center' };
+        cell.border = { bottom:{ style:'medium', color:{argb:'FFB9C2D0'} } };
+      }
+      hRow.height = 18;
+      rIdx++;
+    }
+
+    const row = ws.getRow(rIdx);
+    row.getCell(2).value = r.label.trim();
+    row.getCell(3).value = r.value;
+    row.getCell(4).value = r.details.length ? r.details.join(' • ') : '';
+    row.getCell(5).value = r.artikul || '';
+    row.getCell(6).value = r.shop || '';
+    row.getCell(7).value = r.critical ? '⚠' : '';
+    row.height = 36;
+
+    const bg = r.critical ? COLORS.critical : (zebra ? COLORS.zebra : COLORS.white);
+    for(let c=2;c<=7;c++){
+      const cell = row.getCell(c);
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:bg} };
+      cell.border = { top:thin, bottom:thin, left:thin, right:thin };
+      cell.alignment = { vertical:'middle', wrapText:true };
+    }
+    row.getCell(7).alignment = { vertical:'middle', horizontal:'center' };
+    // посилання, якщо значення — URL (як в оригіналі: клікабельний матеріал)
+    if(typeof r.value==='string' && /^https?:\/\//i.test(r.value)){
+      row.getCell(3).value = { text:'посилання на матеріал', hyperlink:r.value };
+      row.getCell(3).font = { color:{argb:'FF1565C0'}, underline:true };
+    }
+    // кольорова плашка для магазину (як в оригіналі: БЛЮМ/ВІЯР/КРОНАС)
+    const pill = pillColorFor(r.shop);
+    if(pill){
+      row.getCell(6).fill = { type:'pattern', pattern:'solid', fgColor:{argb:pill} };
+      row.getCell(6).font = { bold:true, color:{argb:'FF1A1A1A'} };
+      row.getCell(6).alignment = { vertical:'middle', horizontal:'center' };
+    }
+    if(r.critical){
+      row.getCell(7).font = { bold:true, size:14, color:{argb:COLORS.criticalText} };
+    }
+
+    zebra = !zebra;
+    rIdx++;
+  }
+
+  // Чек-лист для конструктора — окремий блок з реальними позначками "☐" для перевірки
+  if(checklist.length){
+    rIdx++; // проміжок
+    ws.mergeCells(`B${rIdx}:G${rIdx}`);
+    const ch = ws.getCell(`B${rIdx}`);
+    ch.value = '☐ ЧЕК-ЛИСТ ДЛЯ ПЕРЕВІРКИ СТАРШИМ КОНСТРУКТОРОМ';
+    ch.font = { bold:true, size:12, color:{argb:COLORS.critHeaderText} };
+    ch.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.critHeaderBg} };
+    ch.alignment = { vertical:'middle', horizontal:'left', indent:1 };
+    ws.getRow(rIdx).height = 22;
+    rIdx++;
+
+    const chkHdrs = ['','Пункт','Значення','Що перевірити',''];
+    const chkHeaderRow = ws.getRow(rIdx);
+    chkHeaderRow.getCell(2).value = 'Пункт';
+    chkHeaderRow.getCell(3).value = 'Значення';
+    chkHeaderRow.getCell(4).value = 'Що саме перевірити';
+    for(let c=2;c<=4;c++){
+      chkHeaderRow.getCell(c).font = { bold:true, size:10, color:{argb:COLORS.headerText} };
+    }
+    rIdx++;
+
+    checklist.forEach(c=>{
+      const row = ws.getRow(rIdx);
+      row.getCell(2).value = '☐';
+      row.getCell(2).font = { size:16 };
+      row.getCell(2).alignment = { vertical:'middle', horizontal:'center' };
+      ws.mergeCells(`C${rIdx}:C${rIdx}`);
+      row.getCell(3).value = `${c.label} (${c.value})`;
+      row.getCell(3).font = { bold:true };
+      ws.mergeCells(`D${rIdx}:G${rIdx}`);
+      row.getCell(4).value = c.message;
+      [2,3,4].forEach(col=>{
+        const cell = row.getCell(col);
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.critical} };
+        cell.border = { top:thin, bottom:thin, left:thin, right:thin };
+        cell.alignment = { vertical:'middle', wrapText:true, horizontal: col===2?'center':'left' };
+      });
+      row.getCell(4).font = { color:{argb:COLORS.criticalText} };
+      ws.getRow(rIdx).height = 32;
+      rIdx++;
+    });
+  }
+
+  // Суцільна зона для фото/креслень зліва (як в оригіналі — не дрібні іконки, а одне велике поле)
+  const lastRow = Math.max(rIdx-1, 3);
+  ws.mergeCells(`A2:A${lastRow}`);
+  const photoCell = ws.getCell('A2');
+  photoCell.value = 'МІСЦЕ ДЛЯ ФОТО / КРЕСЛЕНЬ\n\nВставте зображення кухні вручну:\nВставка → Малюнок';
+  photoCell.font = { italic:true, size:11, color:{argb:COLORS.photoText} };
+  photoCell.alignment = { vertical:'middle', horizontal:'center', wrapText:true };
+  photoCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:COLORS.photoBg} };
+  const dashed = { style:'dashed', color:{argb:COLORS.photoBorder} };
+  photoCell.border = { top:dashed, bottom:dashed, left:dashed, right:dashed };
+
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], { type:'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `TZ_${currentProfile().name.replace(/\s+/g,'_')}.xlsx`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Excel завантажено');
+}
+
+/* ============ BUILDER (конструктор питань) ============ */
+function uid(){ return 'id'+Math.random().toString(36).slice(2,9); }
+
+function addStep(){
+  currentProfile().steps.push({ id:uid(), title:'Новий розділ', fields:[] });
+  saveSchema(); render();
+}
+function removeStep(si){
+  if(!confirm('Видалити цей розділ повністю?')) return;
+  currentProfile().steps.splice(si,1); saveSchema(); render();
+}
+function updateStepTitle(si, val){
+  currentProfile().steps[si].title = val; saveSchema();
+}
+function addField(si){
+  currentProfile().steps[si].fields.push({ id:uid(), label:'Нове питання', type:'text', options:[] });
+  saveSchema(); render();
+}
+function removeField(si, fi){
+  currentProfile().steps[si].fields.splice(fi,1); saveSchema(); render();
+}
+function updateField(si, fi, prop, val){
+  currentProfile().steps[si].fields[fi][prop] = val; saveSchema();
+}
+function updateFieldType(si, fi, val){
+  currentProfile().steps[si].fields[fi].type = val;
+  if((val==='options'||val==='mixed') && !currentProfile().steps[si].fields[fi].options) currentProfile().steps[si].fields[fi].options = [];
+  saveSchema(); render();
+}
+function updateOptionsFromText(si, fi, text){
+  // формат: "Назва | посилання_на_фото" по одному на рядок
+  const opts = text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const [label, photo] = l.split('|').map(s=>s?s.trim():'');
+    return { label: label||l, photo: photo||'' };
+  });
+  currentProfile().steps[si].fields[fi].options = opts;
+  saveSchema();
+}
+function optionsToText(opts){
+  return (opts||[]).map(o=> o.photo ? `${o.label} | ${o.photo}` : o.label).join('\n');
+}
+function parseOptionsText(text){
+  return text.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{
+    const [label, photo] = l.split('|').map(s=>s?s.trim():'');
+    return { label: label||l, photo: photo||'' };
+  });
+}
+function getFollowUpNode(si, fi, depth){
+  // depth=0 => f.followUp ; depth=1 => f.followUp.followUp ; ...
+  let node = currentProfile().steps[si].fields[fi].followUp;
+  for(let d=0; d<depth; d++){
+    if(!node) return null;
+    node = node.followUp;
+  }
+  return node;
+}
+function getFollowUpParent(si, fi, depth){
+  // parent object that OWNS the followUp at this depth (has a .followUp property)
+  if(depth===0) return currentProfile().steps[si].fields[fi];
+  return getFollowUpNode(si, fi, depth-1);
+}
+function toggleFollowUpAt(si, fi, depth){
+  const parent = getFollowUpParent(si, fi, depth);
+  if(!parent) return;
+  if(parent.followUp) delete parent.followUp;
+  else parent.followUp = { trigger:'*', label:'Уточнення', type:'options', options:[{label:'Так',photo:''},{label:'Ні',photo:''}] };
+  saveSchema(); render();
+}
+function updateFollowUpAt(si, fi, depth, prop, val){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  node[prop] = val; saveSchema();
+}
+function updateFollowUpTypeAt(si, fi, depth, val){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  node.type = val;
+  if((val==='options'||val==='mixed') && !node.options) node.options = [];
+  saveSchema(); render();
+}
+function updateFollowUpOptionsAt(si, fi, depth, text){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  node.options = parseOptionsText(text);
+  saveSchema();
+}
+function toggleCriticalAt(si, fi, depth){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  if(node.critical) delete node.critical;
+  else node.critical = { whenValues: [], message:'Це критично важливо для конструктора.' };
+  saveSchema(); render();
+}
+function toggleCriticalValueAt(si, fi, depth, value, checked){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node || !node.critical) return;
+  if(!Array.isArray(node.critical.whenValues)) node.critical.whenValues = [];
+  const idx = node.critical.whenValues.indexOf(value);
+  if(checked && idx===-1) node.critical.whenValues.push(value);
+  if(!checked && idx!==-1) node.critical.whenValues.splice(idx,1);
+  saveSchema();
+}
+function updateCriticalAt(si, fi, depth, prop, val){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node || !node.critical) return;
+  node.critical[prop] = val; saveSchema();
+}
+function toggleNeedsSourceAt(si, fi, depth){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  node.needsSource = !node.needsSource;
+  saveSchema(); render();
+}
+function toggleFollowUpRequiredAt(si, fi, depth){
+  const node = getFollowUpNode(si, fi, depth);
+  if(!node) return;
+  node.required = !node.required;
+  saveSchema(); render();
+}
+function toggleNeedsSource(si, fi){
+  const f = currentProfile().steps[si].fields[fi];
+  f.needsSource = !f.needsSource;
+  saveSchema(); render();
+}
+function toggleRequired(si, fi){
+  const f = currentProfile().steps[si].fields[fi];
+  f.required = !f.required;
+  saveSchema(); render();
+}
+function updateShopsList(text){
+  schema.shops = text.split('\n').map(s=>s.trim()).filter(Boolean);
+  saveSchema();
+}
+function addProfile(){
+  const name = prompt('Назва нового профілю (напр. "Шафа-купе", "Санвузол")');
+  if(!name) return;
+  const p = { id: pid(), name: name.trim(), steps: [] };
+  schema.profiles.push(p);
+  setCurrentProfile(p.id);
+  saveSchema();
+}
+function renameCurrentProfile(newName){
+  newName = (newName||'').trim();
+  if(!newName) return;
+  currentProfile().name = newName;
+  saveSchema(); render();
+}
+function removeCurrentProfile(){
+  if(schema.profiles.length <= 1){
+    alert('Це єдиний профіль — видалити його не можна. Спершу додайте інший профіль.');
+    return;
+  }
+  if(!confirm(`Видалити профіль «${currentProfile().name}» разом з усіма його питаннями? Це стосується всіх, хто користується цим посиланням, і не можна відмінити.`)) return;
+  schema.profiles = schema.profiles.filter(p=>p.id!==currentProfileId);
+  currentProfileId = schema.profiles[0].id;
+  wizardStep = 0;
+  saveCurrentProfileId();
+  saveSchema();
+  render();
+}
+function resetSchema(){
+  if(!confirm(`Очистити всі питання профілю «${currentProfile().name}»? Це не можна відмінити.`)) return;
+  currentProfile().steps = [];
+  saveSchema(); render();
+}
+function exportSchemaFile(){
+  const blob = new Blob([JSON.stringify(schema, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'tz-schema-kuhnya.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Файл налаштувань завантажено');
+}
+function triggerImportSchema(){
+  document.getElementById('schemaFileInput').click();
+}
+function importSchemaFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const parsed = JSON.parse(e.target.result);
+      if(parsed.profiles && Array.isArray(parsed.profiles) && parsed.profiles.length){
+        // Повний бекап усіх профілів — замінюємо все
+        schema = parsed;
+        if(!schema.shops) schema.shops = DEFAULT_SHOPS.slice();
+        currentProfileId = schema.profiles[0].id;
+        saveCurrentProfileId();
+        saveSchema();
+        render();
+        showToast('Усі профілі завантажено з файлу');
+      } else if(parsed.steps && Array.isArray(parsed.steps)){
+        // Старий формат (один профіль) — імпортуємо саме в поточний профіль, решту не чіпаємо
+        const name = prompt('У який профіль імпортувати ці питання?', currentProfile().name) || currentProfile().name;
+        currentProfile().name = name.trim();
+        currentProfile().steps = parsed.steps;
+        if(parsed.shops) schema.shops = parsed.shops;
+        saveSchema();
+        render();
+        showToast(`Питання завантажено в профіль «${currentProfile().name}»`);
+      } else {
+        throw new Error('bad format');
+      }
+    }catch(err){
+      alert('Не вдалося прочитати файл. Перевірте, що це саме файл, збережений цим інструментом (tz-schema-*.json).');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function renderFollowUpEditor(si, fi, depth){
+  const node = getFollowUpNode(si, fi, depth);
+  const hasNode = !!node;
+  let html = `<div class="followup-box" style="margin-left:${depth*16}px;">
+    <div class="checkbox-row">
+      <input type="checkbox" ${hasNode?'checked':''} onchange="toggleFollowUpAt(${si},${fi},${depth})">
+      <label style="margin:0;">${depth===0 ? 'Додати уточнювальне питання після вибору' : 'Додати ще одне уточнення (рівень '+(depth+1)+')'}</label>
+    </div>`;
+
+  if(hasNode){
+    html += `<div style="margin-top:10px;">
+      <span class="small-label">Текст уточнення</span>
+      <input type="text" value="${esc(node.label)}" onchange="updateFollowUpAt(${si},${fi},${depth},'label',this.value)">
+      <span class="small-label" style="margin-top:8px;">Тип відповіді</span>
+      <select onchange="updateFollowUpTypeAt(${si},${fi},${depth},this.value)">
+        <option value="options" ${node.type==='options'?'selected':''}>Варіанти вибору (кнопки)</option>
+        <option value="mixed" ${node.type==='mixed'?'selected':''}>Випадаючий список + вручну</option>
+        <option value="text" ${node.type==='text'?'selected':''}>Текст (вручну)</option>
+        <option value="note" ${node.type==='note'?'selected':''}>📌 Нагадування (примітка, без відповіді)</option>
+      </select>`;
+    if(node.type==='note'){
+      html += `<p class="hint" style="margin-top:8px;">Покаже цей текст після відповіді на попереднє питання — без своєї відповіді, без валідації, не потрапляє в ТЗ.</p></div></div>`;
+      return html;
+    }
+    if(node.type==='options' || node.type==='mixed'){
+      html += `<span class="small-label" style="margin-top:8px;">Варіанти (по одному на рядок; можна " | посилання_на_фото")</span>
+        <textarea rows="2" onchange="updateFollowUpOptionsAt(${si},${fi},${depth}, this.value)">${optionsToText(node.options)}</textarea>`;
+    }
+    if(node.type==='text'){
+      html += `<span class="small-label" style="margin-top:8px;">Підказка (placeholder)</span>
+        <input type="text" value="${esc(node.placeholder)}" onchange="updateFollowUpAt(${si},${fi},${depth},'placeholder',this.value)">`;
+    }
+    html += `<div class="checkbox-row" style="margin-top:10px;">
+      <input type="checkbox" ${node.required?'checked':''} onchange="toggleFollowUpRequiredAt(${si},${fi},${depth})">
+      <label style="margin:0;">Обов'язкове поле — не пускати далі, поки не заповнено</label>
+    </div>`;
+    html += `<div class="checkbox-row" style="margin-top:8px;">
+      <input type="checkbox" ${node.needsSource?'checked':''} onchange="toggleNeedsSourceAt(${si},${fi},${depth})">
+      <label style="margin:0;">Питання про закупівлю — вимагати артикул і магазин</label>
+    </div>`;
+    if(node.type!=='text'){
+      html += `<div class="checkbox-row" style="margin-top:8px;">
+        <input type="checkbox" ${node.critical?'checked':''} onchange="toggleCriticalAt(${si},${fi},${depth})">
+        <label style="margin:0;">Позначити одну з відповідей як критично важливу</label>
+      </div>`;
+      if(node.critical){
+        if(!Array.isArray(node.critical.whenValues)) node.critical.whenValues = node.critical.whenValue ? [node.critical.whenValue] : [];
+        html += `<span class="small-label" style="margin-top:8px;">Які саме відповіді критичні (можна декілька)</span>
+          <div class="options" style="margin-bottom:8px;">
+            ${(node.options||[]).map(o=>{
+              const checked = node.critical.whenValues.includes(o.label);
+              return `<label class="checkbox-row" style="background:var(--panel-2);padding:6px 10px;border-radius:20px;border:1px solid var(--line);">
+                <input type="checkbox" ${checked?'checked':''} onchange="toggleCriticalValueAt(${si},${fi},${depth},'${o.label.replace(/'/g,"\\'")}',this.checked)">
+                <span>${o.label}</span>
+              </label>`;
+            }).join('')}
+          </div>
+          <span class="small-label" style="margin-top:8px;">Текст попередження для конструктора</span>
+          <textarea rows="2" onchange="updateCriticalAt(${si},${fi},${depth},'message',this.value)">${node.critical.message||''}</textarea>`;
+      }
+    }
+    // рекурсивно — уточнення під уточнення
+    html += renderFollowUpEditor(si, fi, depth+1);
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderBuilder(){
+  const card = document.getElementById('card');
+  const profilesHTML = (schema.profiles||[]).map(p=>{
+    const sel = p.id===currentProfileId ? ' selected' : '';
+    return `<div class="opt${sel}" onclick="setCurrentProfile('${p.id}')">${p.name}</div>`;
+  }).join('');
+
+  let html = `<div class="step-title">Конструктор питань</div>
+    <p style="color:var(--muted);font-size:13px;margin-top:-8px;">Додавайте розділи й питання, задавайте варіанти відповідей, фото (за посиланням) та уточнювальні питання, які зʼявляються після вибору.</p>
+    <p class="hint">Ця схема спільна для всіх, хто відкриє посилання на цей інструмент: коли ви щось зміните тут, це побачать усі. Відповіді (заповнене ТЗ) — особисті, у кожного свої.</p>
+
+    <div class="block-card">
+      <h3>Профіль (вид виробу)</h3>
+      <p class="hint" style="margin-top:-6px;">Питання кожного профілю окремі й не заважають одне одному. Оберіть, який профіль зараз редагуєте.</p>
+      <div class="options" style="margin-bottom:12px;">${profilesHTML}</div>
+      <div class="row">
+        <div>
+          <span class="small-label">Перейменувати поточний профіль («${currentProfile().name}»)</span>
+          <input type="text" value="${esc(currentProfile().name)}" onchange="renameCurrentProfile(this.value)">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <button class="btn" onclick="addProfile()">+ Новий профіль</button>
+          <button class="btn danger" onclick="removeCurrentProfile()">Видалити профіль</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="block-card">
+      <h3>🔒 Захист конструктора PIN-кодом</h3>
+      <p class="hint" style="margin-top:-6px;">${schema.builderPin ? 'Зараз конструктор захищено PIN-кодом — без нього ця вкладка не відкриється (крім вас у поточному сеансі).' : 'Зараз конструктор відкритий для всіх, хто має посилання. Встановіть PIN, щоб редагувати могли тільки ті, хто його знає.'}</p>
+      <div class="row">
+        <div>
+          <span class="small-label">${schema.builderPin ? 'Змінити PIN-код' : 'Встановити PIN-код'}</span>
+          <input type="text" id="newBuilderPin" placeholder="напр. 4821">
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <button class="btn primary" onclick="setBuilderPin(document.getElementById('newBuilderPin').value)">Зберегти</button>
+          ${schema.builderPin ? `<button class="btn danger" onclick="setBuilderPin('')">Зняти захист</button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="block-card">
+      <h3>Список магазинів (для випадаючого списку "Магазин")</h3>
+      <span class="small-label">По одному на рядок</span>
+      <textarea rows="4" onchange="updateShopsList(this.value)">${(schema.shops||[]).join('\n')}</textarea>
+    </div>`;
+
+  currentProfile().steps.forEach((step, si)=>{
+    html += `<div class="block-card">
+      <div class="block-header">
+        <input type="text" value="${step.title.replace(/"/g,'&quot;')}" onchange="updateStepTitle(${si}, this.value)" style="font-weight:700;font-size:15px;">
+        <button class="btn danger" onclick="removeStep(${si})">Видалити розділ</button>
+      </div>`;
+
+    step.fields.forEach((f, fi)=>{
+      html += `<div class="field-editor">
+        <div class="row">
+          <div>
+            <span class="small-label">${f.type==='note' ? 'Текст нагадування' : 'Назва питання'}</span>
+            <input type="text" value="${(f.label||'').replace(/"/g,'&quot;')}" onchange="updateField(${si},${fi},'label',this.value)">
+          </div>
+          <div>
+            <span class="small-label">Тип відповіді</span>
+            <select onchange="updateFieldType(${si},${fi},this.value)">
+              <option value="text" ${f.type==='text'?'selected':''}>Текст (коротко)</option>
+              <option value="textarea" ${f.type==='textarea'?'selected':''}>Текст (довго)</option>
+              <option value="options" ${f.type==='options'?'selected':''}>Варіанти вибору (кнопки)</option>
+              <option value="mixed" ${f.type==='mixed'?'selected':''}>Випадаючий список + вручну</option>
+              <option value="note" ${f.type==='note'?'selected':''}>📌 Нагадування (примітка, без відповіді)</option>
+            </select>
+          </div>
+        </div>`;
+
+      if(f.type==='note'){
+        html += `<p class="hint" style="margin-top:4px;">Нагадування просто показується на екрані під час заповнення — воно не має поля для відповіді, не вимагає заповнення і не потрапляє в підсумкове ТЗ.</p>
+          <div style="text-align:right;margin-top:6px;">
+            <button class="btn danger" onclick="removeField(${si},${fi})">Видалити</button>
+          </div>
+        </div>`;
+        return; // для нагадування решта налаштувань (варіанти, закупівля, уточнення) не потрібні
+      }
+
+      if(f.type==='text' || f.type==='textarea'){
+        html += `<span class="small-label">Підказка (placeholder)</span>
+          <input type="text" value="${(f.placeholder||'').replace(/"/g,'&quot;')}" onchange="updateField(${si},${fi},'placeholder',this.value)">`;
+      }
+      if(f.type==='options' || f.type==='mixed'){
+        html += `<span class="small-label">Варіанти (по одному на рядок; можна додати " | посилання_на_фото")</span>
+          <textarea rows="3" onchange="updateOptionsFromText(${si},${fi}, this.value)">${optionsToText(f.options)}</textarea>`;
+      }
+
+      html += `<div class="checkbox-row" style="margin-top:10px;">
+        <input type="checkbox" ${f.required?'checked':''} onchange="toggleRequired(${si},${fi})">
+        <label style="margin:0;">Обов'язкове поле — не пускати далі, поки не заповнено</label>
+      </div>`;
+
+      html += `<div class="checkbox-row" style="margin-top:8px;">
+        <input type="checkbox" ${f.needsSource?'checked':''} onchange="toggleNeedsSource(${si},${fi})">
+        <label style="margin:0;">Питання про закупівлю — вимагати артикул і магазин</label>
+      </div>`;
+
+      html += renderFollowUpEditor(si, fi, 0);
+      html += `
+        <div style="text-align:right;margin-top:6px;">
+          <button class="btn danger" onclick="removeField(${si},${fi})">Видалити питання</button>
+        </div>
+      </div>`;
+    });
+
+    html += `<button class="btn" onclick="addField(${si})">+ Додати питання</button>
+    </div>`;
+  });
+
+  html += `<div class="toolbar">
+    <button class="btn primary" onclick="addStep()">+ Додати розділ</button>
+    <button class="btn" onclick="exportSchemaFile()">⬇ Зберегти налаштування у файл</button>
+    <button class="btn" onclick="triggerImportSchema()">⬆ Завантажити налаштування з файлу</button>
+    <input type="file" id="schemaFileInput" accept="application/json" style="display:none" onchange="importSchemaFile(this)">
+    <button class="btn danger" onclick="resetSchema()">Очистити питання поточного профілю</button>
+  </div>
+  <p class="hint">Якщо ви відкриваєте цей файл поза Claude (просто в браузері), автозбереження не працює — обов'язково зберігайте свої зміни кнопкою "Зберегти налаштування у файл" і завантажуйте їх назад кнопкою поруч при наступному відкритті.</p>`;
+
+  card.innerHTML = html;
+}
+
+/* ============ MAIN RENDER ============ */
+let builderUnlocked = false;
+function checkBuilderPin(){
+  const input = document.getElementById('builderPinInput');
+  if(!input) return;
+  if(input.value === (schema.builderPin||'')){
+    builderUnlocked = true;
+    render();
+  } else {
+    alert('Невірний PIN-код.');
+  }
+}
+function renderBuilderLock(){
+  const card = document.getElementById('card');
+  card.innerHTML = `
+    <div class="step-title">🔒 Конструктор питань захищено</div>
+    <p style="color:var(--muted);font-size:14px;">Введіть PIN-код, щоб редагувати питання. Заповнення ТЗ та Excel-експорт доступні всім без PIN-коду.</p>
+    <input type="text" id="builderPinInput" placeholder="PIN-код" style="max-width:200px;" onkeydown="if(event.key==='Enter') checkBuilderPin()">
+    <div class="nav" style="justify-content:flex-start;margin-top:16px;">
+      <button class="btn primary" onclick="checkBuilderPin()">Розблокувати</button>
+    </div>`;
+}
+function setBuilderPin(newPin){
+  newPin = (newPin||'').trim();
+  schema.builderPin = newPin || null;
+  saveSchema();
+  showToast(newPin ? 'PIN-код встановлено' : 'PIN-код знято');
+}
+
+function render(){
+  if(activeTab==='builder'){
+    if(schema.builderPin && !builderUnlocked) renderBuilderLock();
+    else renderBuilder();
+  }
+  else if(activeTab==='wizard') renderWizard();
+  else renderSummary();
+}
+
+(async function init(){
+  await loadState();
+  if(schema.builderPin && activeTab==='builder') activeTab = 'wizard';
+  renderTabBar();
+  render();
+})();
+</script>
+</body>
+</html>
