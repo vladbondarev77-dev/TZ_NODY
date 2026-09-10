@@ -340,6 +340,8 @@
   .stock-btn:disabled{opacity:.4;cursor:default;}
   .stock-btn.loading{opacity:.5;}
   .stock-val{min-width:64px;text-align:center;}
+  .stock-val.editable{cursor:pointer;border-bottom:1px dashed var(--faint);}
+  .stock-val.editable:active{color:var(--accent-ink);}
   .stock-err{color:var(--warn-ink);font-weight:400;font-style:normal;}
 </style>
 </head>
@@ -503,7 +505,8 @@ function jsonpRequest(url, params){
     }, 15000);
     const qs = new URLSearchParams(Object.assign({}, params, { callback: cbName })).toString();
     script.src = url + '?' + qs;
-    script.onerror = () => { if (!done){ cleanup(); reject(new Error('мережева помилка')); } };
+    console.log('[stock] запит:', script.src);
+    script.onerror = () => { if (!done){ cleanup(); reject(new Error('мережева помилка (не вдалось завантажити скрипт — перевір STOCK_API_URL)')); } };
     document.body.appendChild(script);
   });
 }
@@ -517,13 +520,27 @@ async function adjustStock(id, delta){
   buttons.forEach(b => b.disabled = true);
   try {
     const data = await jsonpRequest(STOCK_API_URL, { action: 'stock', artikul: artikul, delta: String(delta), who: 'сайт' });
+    console.log('[stock] відповідь:', data);
     if (!data || data.ok !== true) throw new Error((data && data.error) || 'помилка сервера');
     it["Залишок"] = String(data.zalyshok);
     if (sheet.classList.contains('open')) openItem(id); // перемальовуємо з новим залишком
   } catch (err){
+    console.error('[stock] помилка:', err);
     alert('Не вдалось оновити залишок: ' + err.message + '\nСпробуй ще раз за хвилину.');
     buttons.forEach(b => b.disabled = false);
   }
+}
+
+// Тап по самій цифрі залишку — можна ввести конкретну зміну одразу
+// (напр. -1000), а не тицяти "-" тисячу разів.
+function promptStockChange(id){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  if (!it) return;
+  const val = prompt('Введи зміну кількості (мінус — списання, плюс — прихід). Напр: -1000 або 500', '');
+  if (val === null) return;
+  const delta = parseFloat(String(val).replace(',', '.').replace(/\s/g, ''));
+  if (isNaN(delta) || delta === 0){ alert('Не зрозумів число.'); return; }
+  adjustStock(id, delta);
 }
 
 function zalyshokRowHtml(it){
@@ -536,7 +553,7 @@ function zalyshokRowHtml(it){
   const canEdit = !!it["Артикул"];
   return `<dt>Залишок</dt><dd class="mono stock-row">
     <button class="stock-btn" data-delta="-1" data-id="${esc(it.ID)}" ${canEdit ? '' : 'disabled'} aria-label="Списати 1">−</button>
-    <span class="stock-val">${num}${it["Од. виміру"] ? ' ' + esc(it["Од. виміру"]) : ''}</span>
+    <span class="stock-val${canEdit ? ' editable' : ''}" data-id="${esc(it.ID)}" title="${canEdit ? 'Тисни, щоб ввести точну зміну' : ''}">${num}${it["Од. виміру"] ? ' ' + esc(it["Од. виміру"]) : ''}</span>
     <button class="stock-btn" data-delta="1" data-id="${esc(it.ID)}" ${canEdit ? '' : 'disabled'} aria-label="Прийняти 1">+</button>
   </dd>`;
 }
@@ -729,6 +746,9 @@ function openItem(id){
   wireThumbFallbacks(sheet);
   sheet.querySelectorAll('.stock-btn').forEach(btn => {
     btn.addEventListener('click', () => adjustStock(btn.dataset.id, parseInt(btn.dataset.delta, 10)));
+  });
+  sheet.querySelectorAll('.stock-val.editable').forEach(el => {
+    el.addEventListener('click', () => promptStockChange(el.dataset.id));
   });
 }
 function closeSheet(){
