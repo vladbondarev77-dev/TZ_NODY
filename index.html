@@ -330,6 +330,17 @@
     margin-top:14px;padding:10px 12px;background:var(--paper);border:1px dashed var(--border);
     border-radius:10px;font-size:12px;color:var(--muted);line-height:1.5;
   }
+  .stock-row{display:flex;align-items:center;gap:10px;}
+  .stock-btn{
+    width:30px;height:30px;flex-shrink:0;border-radius:9px;border:1px solid var(--border);
+    background:var(--paper);color:var(--accent-ink);font-family:inherit;font-size:17px;font-weight:600;
+    line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  }
+  .stock-btn:active{background:var(--accent-soft);border-color:var(--accent);}
+  .stock-btn:disabled{opacity:.4;cursor:default;}
+  .stock-btn.loading{opacity:.5;}
+  .stock-val{min-width:64px;text-align:center;}
+  .stock-err{color:var(--warn-ink);font-weight:400;font-style:normal;}
 </style>
 </head>
 <body>
@@ -361,6 +372,13 @@
 // Посилання на опубліковану (Publish to web -> CSV) вкладку Google Sheets.
 // Щоб оновити джерело даних пізніше — заміните тільки цей рядок.
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU218FxxaXiCYx1Rehj4ZohMJUwbxYVpi_MKAYPKTkVsfTCzcqYhjB2b3m6iVm5UifjiwC272nFIe5/pub?gid=1084815945&single=true&output=csv";
+
+// Web App того самого Apps Script (Code.gs), що керує Telegram-ботом —
+// сайт викликає його напряму (через JSONP, без CORS-проблем), щоб
+// списувати/прибуткувати склад прямо з картки товару. Якщо колись
+// перестворите розгортання ("New deployment", а не "New version") —
+// URL зміниться, і його треба оновити саме тут.
+const STOCK_API_URL = "https://script.google.com/macros/s/AKfycbyccR7Kcb71tBYHn5jk1J_xIBUeBewojxssTtFIcSU8s6GITBor5gwfhCHCBr010fAXMw/exec";
 
 // ====== Telegram Mini App ======
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
@@ -465,6 +483,62 @@ function formatZalyshok(it){
     return (num + (it["Од. виміру"] ? " " + it["Од. виміру"] : "")).trim();
   }
   return String(z); // текстовий опис показуємо як є, без додавання од.виміру
+}
+
+// ====== Зміна залишку прямо з картки (+/-) ======
+// Викликає той самий Apps Script Web App, що обслуговує Telegram-бота
+// (той самий "Рух складу" і та сама формула Залишку в довіднику).
+// JSONP замість fetch() — так надійніше works cross-origin зі статичного
+// GitHub Pages сайту без танців з CORS-заголовками.
+let jsonpCounter = 0;
+function jsonpRequest(url, params){
+  return new Promise((resolve, reject) => {
+    const cbName = "stockCb" + (++jsonpCounter) + "_" + Date.now();
+    const script = document.createElement('script');
+    let done = false;
+    const cleanup = () => { delete window[cbName]; script.remove(); clearTimeout(timer); };
+    window[cbName] = (data) => { done = true; cleanup(); resolve(data); };
+    const timer = setTimeout(() => {
+      if (!done){ cleanup(); reject(new Error('немає відповіді від сервера (тайм-аут)')); }
+    }, 15000);
+    const qs = new URLSearchParams(Object.assign({}, params, { callback: cbName })).toString();
+    script.src = url + '?' + qs;
+    script.onerror = () => { if (!done){ cleanup(); reject(new Error('мережева помилка')); } };
+    document.body.appendChild(script);
+  });
+}
+
+async function adjustStock(id, delta){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  if (!it) return;
+  const artikul = it["Артикул"];
+  if (!artikul){ alert('У цієї позиції немає артикулу — не можу оновити склад.'); return; }
+  const buttons = sheet.querySelectorAll('.stock-btn');
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const data = await jsonpRequest(STOCK_API_URL, { action: 'stock', artikul: artikul, delta: String(delta), who: 'сайт' });
+    if (!data || data.ok !== true) throw new Error((data && data.error) || 'помилка сервера');
+    it["Залишок"] = String(data.zalyshok);
+    if (sheet.classList.contains('open')) openItem(id); // перемальовуємо з новим залишком
+  } catch (err){
+    alert('Не вдалось оновити залишок: ' + err.message + '\nСпробуй ще раз за хвилину.');
+    buttons.forEach(b => b.disabled = false);
+  }
+}
+
+function zalyshokRowHtml(it){
+  const z = it["Залишок"];
+  if (z !== null && !isNumericZalyshok(z)) {
+    // текстовий опис (для матеріалів) — без кнопок +/-, тільки перегляд
+    return `<dt>Залишок</dt><dd class="mono">${esc(formatZalyshok(it))}</dd>`;
+  }
+  const num = z !== null ? parseFloat(String(z).replace(',', '.')) : 0;
+  const canEdit = !!it["Артикул"];
+  return `<dt>Залишок</dt><dd class="mono stock-row">
+    <button class="stock-btn" data-delta="-1" data-id="${esc(it.ID)}" ${canEdit ? '' : 'disabled'} aria-label="Списати 1">−</button>
+    <span class="stock-val">${num}${it["Од. виміру"] ? ' ' + esc(it["Од. виміру"]) : ''}</span>
+    <button class="stock-btn" data-delta="1" data-id="${esc(it.ID)}" ${canEdit ? '' : 'disabled'} aria-label="Прийняти 1">+</button>
+  </dd>`;
 }
 
 function visibleItems(){
@@ -644,7 +718,7 @@ function openItem(id){
       <dt>Постачальник</dt><dd>${esc(it["Постачальник"])}</dd>
       <dt>Ціна</dt><dd class="${price===null?'dim':'mono'}">${price!==null ? price.toFixed(2)+' грн' : 'не вказано'}</dd>
       <dt>Од. виміру</dt><dd>${esc(it["Од. виміру"])}</dd>
-      ${it["Залишок"] !== null ? `<dt>Залишок</dt><dd class="mono">${esc(formatZalyshok(it))}</dd>` : ''}
+      ${zalyshokRowHtml(it)}
       <dt>Характеристики</dt><dd class="${it["Характеристики"]?'':'dim'}">${it["Характеристики"] ? esc(it["Характеристики"]) : 'уточнить закупщику'}</dd>
       <dt>Оновлено</dt><dd class="mono">${esc(it["Дата оновлення"])}</dd>
     </dl>
@@ -653,6 +727,9 @@ function openItem(id){
   sheet.classList.add('open');
   sheetVeil.classList.add('open');
   wireThumbFallbacks(sheet);
+  sheet.querySelectorAll('.stock-btn').forEach(btn => {
+    btn.addEventListener('click', () => adjustStock(btn.dataset.id, parseInt(btn.dataset.delta, 10)));
+  });
 }
 function closeSheet(){
   sheet.classList.remove('open');
