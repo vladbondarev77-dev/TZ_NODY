@@ -342,6 +342,8 @@
   .stock-val{min-width:64px;text-align:center;}
   .stock-val.editable{cursor:pointer;border-bottom:1px dashed var(--faint);}
   .stock-val.editable:active{color:var(--accent-ink);}
+  .editable-text{cursor:pointer;border-bottom:1px dashed var(--faint);display:inline-block;}
+  .editable-text:active{color:var(--accent-ink);}
   .stock-err{color:var(--warn-ink);font-weight:400;font-style:normal;}
 </style>
 </head>
@@ -543,11 +545,38 @@ function promptStockChange(id){
   adjustStock(id, delta);
 }
 
+// Для матеріалів (Залишок — вільний текст типу "пів листа") нема чисел
+// для +/-, тому просто даємо ввести/перезаписати опис. Новий текст
+// ПОВНІСТЮ замінює попередній (так само як і в Формі — останній запис
+// виграє, суми тут нема сенсу).
+async function promptMaterialChange(id){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  if (!it) return;
+  const current = it["Залишок"] !== null ? String(it["Залишок"]) : '';
+  const val = prompt('Опиши, скільки лишилось (напр. "1 лист", "пів листа", "3 фасада 400х500"):', current);
+  if (val === null) return;
+  const text = val.trim();
+  if (!text){ alert('Порожній опис не зберігаю.'); return; }
+  const artikul = it["Артикул"];
+  if (!artikul){ alert('У цієї позиції немає артикулу — не можу оновити склад.'); return; }
+  try {
+    const data = await jsonpRequest(STOCK_API_URL, { action: 'material_text', artikul: artikul, text: text, who: 'сайт' });
+    console.log('[stock] відповідь:', data);
+    if (!data || data.ok !== true) throw new Error((data && data.error) || 'помилка сервера');
+    it["Залишок"] = String(data.zalyshok);
+    if (sheet.classList.contains('open')) openItem(id);
+  } catch (err){
+    console.error('[stock] помилка:', err);
+    alert('Не вдалось оновити залишок: ' + err.message + '\nСпробуй ще раз за хвилину.');
+  }
+}
+
 function zalyshokRowHtml(it){
   const z = it["Залишок"];
   if (z !== null && !isNumericZalyshok(z)) {
-    // текстовий опис (для матеріалів) — без кнопок +/-, тільки перегляд
-    return `<dt>Залишок</dt><dd class="mono">${esc(formatZalyshok(it))}</dd>`;
+    // текстовий опис (для матеріалів) — тап відкриває поле для нового опису
+    const canEditText = !!it["Артикул"];
+    return `<dt>Залишок</dt><dd class="mono${canEditText ? ' editable-text' : ''}" data-id="${esc(it.ID)}" title="${canEditText ? 'Тисни, щоб змінити опис' : ''}">${esc(formatZalyshok(it))}</dd>`;
   }
   const num = z !== null ? parseFloat(String(z).replace(',', '.')) : 0;
   const canEdit = !!it["Артикул"];
@@ -749,6 +778,9 @@ function openItem(id){
   });
   sheet.querySelectorAll('.stock-val.editable').forEach(el => {
     el.addEventListener('click', () => promptStockChange(el.dataset.id));
+  });
+  sheet.querySelectorAll('.editable-text').forEach(el => {
+    el.addEventListener('click', () => promptMaterialChange(el.dataset.id));
   });
 }
 function closeSheet(){
