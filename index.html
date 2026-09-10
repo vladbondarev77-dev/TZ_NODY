@@ -124,17 +124,32 @@
   }
   .search input::placeholder{color:var(--faint);}
   .search input:focus{border-color:var(--accent);}
-  .stock-toggle{
+  .stock-chips{
     display:flex;
-    align-items:center;
     gap:7px;
     margin-top:9px;
-    font-size:12.5px;
-    color:var(--muted);
-    user-select:none;
-    cursor:pointer;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
   }
-  .stock-toggle input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;}
+  .stock-chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;
+    border:1px solid var(--border);
+    background:var(--paper);
+    color:var(--muted);
+    font-family:inherit;
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:100px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{
+    background:var(--accent-soft);
+    border-color:var(--accent);
+    color:var(--accent-ink);
+  }
 
   .body{
     flex:1;
@@ -325,10 +340,11 @@
   </div>
   <div class="search">
     <input id="searchInput" type="text" placeholder="Пошук за назвою або артикулом…" autocomplete="off">
-    <label class="stock-toggle" id="stockToggleLabel">
-      <input type="checkbox" id="stockToggle">
-      Тільки в наявності (є залишок на складі)
-    </label>
+    <div class="stock-chips" id="stockChips">
+      <button class="chip active" data-filter="all" type="button">Всі позиції</button>
+      <button class="chip" data-filter="furn" type="button">Фурнітура · на складі</button>
+      <button class="chip" data-filter="mat" type="button">Матеріали · на складі</button>
+    </div>
   </div>
   <div class="body" id="screenBody">
     <div class="skeleton-row"><div class="skel" style="width:44px;height:44px;"></div><div style="flex:1"><div class="skel" style="height:14px;width:70%;margin-bottom:8px;"></div><div class="skel" style="height:10px;width:40%;"></div></div></div>
@@ -392,10 +408,31 @@ function initials(text){
 }
 const CAMERA_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 
+// ====== Групування блоків: фурнітура / матеріали ======
+// Використовується тільки для фільтрів "на складі" зверху. Якщо додаєте
+// новий Блок у таблицю і хочете, щоб він теж потрапляв у один із цих
+// фільтрів — впишіть його сюди ("furn" або "mat"). Блоки поза цим списком
+// просто не з'являться під жодним із двох фільтрів (окрім "Всі позиції").
+const BLOCK_GROUP = {
+  "Петлі": "furn",
+  "Напрямні (для шухляд)": "furn",
+  "Механізми підйому фасадів": "furn",
+  "Ручки та профілі-ручки": "furn",
+  "Ніжки та опори": "furn",
+  "Кріплення / з'єднувальна фурнітура": "furn",
+  "Розсувні системи": "furn",
+  "Доводчики / амортизатори": "furn",
+  "Освітлення": "furn",
+  "Кромка": "mat",
+  "ЛДСП / ЛМДФ": "mat",
+  "Стільниці": "mat",
+};
+const STOCK_FILTER_LABEL = { all: "", furn: "фурнітура на складі", mat: "матеріали на складі" };
+
 // ====== Стан ======
 let ITEMS = [];
-let currentItems = []; // ITEMS, або тільки ті що в наявності, якщо увімкнено фільтр
-let stockOnly = false;
+let currentItems = []; // ITEMS, відфільтровані під активний stockFilter
+let stockFilter = 'all'; // 'all' | 'furn' | 'mat'
 let blocks = {};
 let blockNames = [];
 let currentBlock = null;
@@ -405,12 +442,13 @@ const screenTitle = document.getElementById('screenTitle');
 const screenSub = document.getElementById('screenSub');
 const screenBody = document.getElementById('screenBody');
 const searchInput = document.getElementById('searchInput');
-const stockToggle = document.getElementById('stockToggle');
+const stockChips = document.getElementById('stockChips');
 const sheet = document.getElementById('sheet');
 const sheetVeil = document.getElementById('sheetVeil');
 
 function visibleItems(){
-  return stockOnly ? ITEMS.filter(it => it["Залишок"] !== null && it["Залишок"] > 0) : ITEMS;
+  if (stockFilter === 'all') return ITEMS;
+  return ITEMS.filter(it => BLOCK_GROUP[it["Блок"]] === stockFilter && it["Залишок"] !== null && it["Залишок"] > 0);
 }
 
 function findField(r, ...candidates){
@@ -478,7 +516,8 @@ function buildIndex(){
 }
 
 function renderBlocksScreen(){
-  screenTitle.innerHTML = `Довідник фурнітури<small>${blockNames.length} блоків · ${currentItems.length} позицій${stockOnly ? ' · в наявності' : ''}</small>`;
+  const suffix = STOCK_FILTER_LABEL[stockFilter] ? ` · ${STOCK_FILTER_LABEL[stockFilter]}` : '';
+  screenTitle.innerHTML = `Довідник фурнітури<small>${blockNames.length} блоків · ${currentItems.length} позицій${suffix}</small>`;
   backBtn.classList.remove('show');
   if (tg) tg.BackButton.hide();
   screenBody.innerHTML = blockNames.map(b => {
@@ -646,8 +685,12 @@ searchInput.addEventListener('input', (e) => {
   }, 150);
 });
 
-stockToggle.addEventListener('change', (e) => {
-  stockOnly = e.target.checked;
+stockChips.addEventListener('click', (e) => {
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  stockFilter = btn.dataset.filter;
+  stockChips.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c === btn));
+  currentBlock = null;
   buildIndex();
   if (searchInput.value.trim() !== "") renderSearch(searchInput.value);
   else renderSearchOrHome();
