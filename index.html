@@ -446,9 +446,30 @@ const stockChips = document.getElementById('stockChips');
 const sheet = document.getElementById('sheet');
 const sheetVeil = document.getElementById('sheetVeil');
 
+// Залишок буває або чисто числом ("12", "0.5", "-3"), або довільним описом
+// ("пів листа", "3 фасада 400х500") — для матеріалів, де рахувати листами
+// не завжди має сенс. isNumericZalyshok() розрізняє ці два випадки.
+function isNumericZalyshok(z){
+  return /^-?\d+([.,]\d+)?$/.test(String(z).trim());
+}
+function inStock(it){
+  const z = it["Залишок"];
+  if (z === null || String(z).trim() === '') return false;
+  if (isNumericZalyshok(z)) return parseFloat(String(z).replace(',', '.')) > 0;
+  return true; // непорожній текстовий опис — вважаємо, що є в наявності
+}
+function formatZalyshok(it){
+  const z = it["Залишок"];
+  if (isNumericZalyshok(z)) {
+    const num = parseFloat(String(z).replace(',', '.'));
+    return (num + (it["Од. виміру"] ? " " + it["Од. виміру"] : "")).trim();
+  }
+  return String(z); // текстовий опис показуємо як є, без додавання од.виміру
+}
+
 function visibleItems(){
   if (stockFilter === 'all') return ITEMS;
-  return ITEMS.filter(it => BLOCK_GROUP[it["Блок"]] === stockFilter && it["Залишок"] !== null && it["Залишок"] > 0);
+  return ITEMS.filter(it => BLOCK_GROUP[it["Блок"]] === stockFilter && inStock(it));
 }
 
 function findField(r, ...candidates){
@@ -481,7 +502,7 @@ async function loadData(){
         Статус: r['Статус'] || '',
         Фото: r['Фото'] || '',
         Характеристики: findField(r, 'Характеристика', 'Характеристики'),
-        Залишок: r['Залишок'] !== undefined && r['Залишок'] !== '' && !isNaN(parseFloat(r['Залишок'])) ? parseFloat(r['Залишок']) : null,
+        Залишок: r['Залишок'] !== undefined && r['Залишок'] !== '' ? r['Залишок'] : null,
         'Дата оновлення': r['Дата оновлення'] || '',
         Коментар: r['Коментар'] || '',
         'Посилання на товар': findField(r, 'Посилання на товар', 'Відповідальний', 'Посилання', 'Посилання на сайт постачальника')
@@ -623,7 +644,7 @@ function openItem(id){
       <dt>Постачальник</dt><dd>${esc(it["Постачальник"])}</dd>
       <dt>Ціна</dt><dd class="${price===null?'dim':'mono'}">${price!==null ? price.toFixed(2)+' грн' : 'не вказано'}</dd>
       <dt>Од. виміру</dt><dd>${esc(it["Од. виміру"])}</dd>
-      ${it["Залишок"] !== null ? `<dt>Залишок</dt><dd class="mono">${it["Залишок"]} ${esc(it["Од. виміру"]||'')}</dd>` : ''}
+      ${it["Залишок"] !== null ? `<dt>Залишок</dt><dd class="mono">${esc(formatZalyshok(it))}</dd>` : ''}
       <dt>Характеристики</dt><dd class="${it["Характеристики"]?'':'dim'}">${it["Характеристики"] ? esc(it["Характеристики"]) : 'уточнить закупщику'}</dd>
       <dt>Оновлено</dt><dd class="mono">${esc(it["Дата оновлення"])}</dd>
     </dl>
