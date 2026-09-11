@@ -726,6 +726,10 @@ function addSheetHtml(){
       <textarea id="addChars" placeholder="Кут, розмір, колір, навантаження…"></textarea>
     </div>
     <div class="add-field">
+      <label>Фото (посилання на зображення)</label>
+      <input type="url" id="addPhoto" placeholder="https://…/photo.jpg" autocomplete="off">
+    </div>
+    <div class="add-field">
       <label>Хто додає</label>
       <input type="text" id="addWho" placeholder="ім'я (необов'язково)">
     </div>
@@ -782,13 +786,15 @@ async function fetchPreviewForAdd(){
       if (guess && !supplierField.value.trim()) supplierField.value = guess;
     }
     if (data.image){
+      const photoField = document.getElementById('addPhoto');
+      if (!photoField.value.trim()) photoField.value = data.image;
       box.innerHTML = `<div class="add-preview"><img src="${esc(data.image)}" alt=""><div>Фото й опис підтягнуті зі сторінки — перевір і поправ, якщо треба.</div></div>`;
     } else {
-      box.innerHTML = `<div class="add-preview">Сторінку прочитав, але фото на ній не знайшов — встав посилання на фото вручну, якщо є.</div>`;
+      box.innerHTML = `<div class="add-preview">Сторінку прочитав, але фото на ній не знайшов — встав посилання на фото в поле «Фото» вручну, якщо є.</div>`;
     }
   } catch (err){
     console.error('[add] помилка прев’ю:', err);
-    box.innerHTML = `<div class="add-msg err">Не вдалось прочитати сторінку: ${esc(err.message)}. Можеш заповнити поля вручну.</div>`;
+    box.innerHTML = `<div class="add-msg err">Не вдалось прочитати сторінку автоматично (цей сайт блокує такі запити) — заповни поля вручну. Фото можна взяти так: відкрий посилання в себе в браузері → клацни правою кнопкою на фото товару → «Копіювати адресу зображення» → встав у поле «Фото» нижче.</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Знайти';
@@ -816,7 +822,7 @@ async function submitAddItem(force){
     supplier: document.getElementById('addSupplier').value.trim(),
     price: document.getElementById('addPrice').value.trim(),
     unit: document.getElementById('addUnit').value,
-    photo: addPreview.photo,
+    photo: document.getElementById('addPhoto').value.trim(),
     link: document.getElementById('addUrl').value.trim(),
     chars: document.getElementById('addChars').value.trim(),
     who: document.getElementById('addWho').value.trim(),
