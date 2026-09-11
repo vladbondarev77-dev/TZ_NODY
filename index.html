@@ -576,6 +576,7 @@ function inStock(it){
 }
 function formatZalyshok(it){
   const z = it["Залишок"];
+  if (z === null || String(z).trim() === '') return 'немає даних';
   if (isNumericZalyshok(z)) {
     const num = parseFloat(String(z).replace(',', '.'));
     return (num + (it["Од. виміру"] ? " " + it["Од. виміру"] : "")).trim();
@@ -864,7 +865,14 @@ async function submitAddItem(force){
 
 function zalyshokRowHtml(it){
   const z = it["Залишок"];
-  if (z !== null && !isNumericZalyshok(z)) {
+  // Матеріальні блоки (ЛДСП/ЛМДФ, Кромка, Стільниці) завжди текстовий
+  // опис — незалежно від того, чи вже є в Залишку якесь значення.
+  // Раніше рішення приймалось тільки за поточним значенням: щойно
+  // додана позиція без жодного руху мала Залишок = null, а null не
+  // проходив перевірку isNumericZalyshok → код помилково падав у
+  // числову гілку і малював +/- замість поля для тексту.
+  const isMaterial = BLOCK_GROUP[it["Блок"]] === 'mat';
+  if (isMaterial || (z !== null && !isNumericZalyshok(z))) {
     // текстовий опис (для матеріалів) — тап відкриває поле для нового опису
     const canEditText = !!it["Артикул"];
     return `<dt>Залишок</dt><dd class="mono${canEditText ? ' editable-text' : ''}" data-id="${esc(it.ID)}" title="${canEditText ? 'Тисни, щоб змінити опис' : ''}">${esc(formatZalyshok(it))}</dd>`;
