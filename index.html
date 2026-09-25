@@ -640,7 +640,7 @@ function formatZalyshok(it){
 // JSONP замість fetch() — так надійніше works cross-origin зі статичного
 // GitHub Pages сайту без танців з CORS-заголовками.
 let jsonpCounter = 0;
-function jsonpRequest(url, params){
+function jsonpRequest(url, params, timeoutMs){
   return new Promise((resolve, reject) => {
     const cbName = "stockCb" + (++jsonpCounter) + "_" + Date.now();
     const script = document.createElement('script');
@@ -649,7 +649,7 @@ function jsonpRequest(url, params){
     window[cbName] = (data) => { done = true; cleanup(); resolve(data); };
     const timer = setTimeout(() => {
       if (!done){ cleanup(); reject(new Error('немає відповіді від сервера (тайм-аут)')); }
-    }, 15000);
+    }, timeoutMs || 30000);
     const qs = new URLSearchParams(Object.assign({}, params, { callback: cbName })).toString();
     script.src = url + '?' + qs;
     console.log('[stock] запит:', script.src);
@@ -925,7 +925,7 @@ async function submitAddItem(force){
     force: force ? '1' : '0',
   };
   try {
-    const data = await jsonpRequest(STOCK_API_URL, params);
+    const data = await jsonpRequest(STOCK_API_URL, params, 45000);
     console.log('[add] відповідь:', data);
     if (data && data.ok === true){
       msgBox.innerHTML = `<div class="add-msg ok">Додано! З'явиться на сайті за кілька хвилин (публікація таблиці оновлюється автоматично).</div>`;
@@ -951,7 +951,11 @@ async function submitAddItem(force){
     }
   } catch (err){
     console.error('[add] помилка:', err);
-    msgBox.innerHTML = `<div class="add-msg err">Не вдалось додати: ${esc(err.message)}. Спробуй ще раз.</div>`;
+    // Тайм-аут ≠ "не додалось": Google часто вже записав рядок, просто
+    // відповідь не дійшла до браузера. Повторне натискання = дубль.
+    msgBox.innerHTML = /тайм-аут/.test(err.message)
+      ? `<div class="add-msg err">Сервер не відповів вчасно, але позиція <b>могла вже додатись</b>. Не тисни ще раз — онови сторінку за хвилину і знайди її пошуком за артикулом.</div>`
+      : `<div class="add-msg err">Не вдалось додати: ${esc(err.message)}. Спробуй ще раз.</div>`;
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Додати в довідник';
