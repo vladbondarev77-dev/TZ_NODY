@@ -345,6 +345,31 @@
   .editable-text{cursor:pointer;border-bottom:1px dashed var(--faint);display:inline-block;}
   .editable-text:active{color:var(--accent-ink);}
   .stock-err{color:var(--warn-ink);font-weight:400;font-style:normal;}
+  /* ====== Профілі: залишок списком відрізків ====== */
+  .prof-box{display:flex;flex-direction:column;gap:8px;}
+  .prof-pieces{display:flex;flex-wrap:wrap;gap:6px;}
+  .prof-piece{
+    display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:100px;
+    border:1px solid var(--border);background:var(--paper);font-family:"IBM Plex Mono",monospace;font-size:12px;
+  }
+  .prof-del{
+    width:20px;height:20px;border-radius:50%;border:none;background:var(--line);color:var(--muted);
+    font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .prof-del:active{background:var(--accent-soft);color:var(--accent-ink);}
+  .prof-sum{font-size:12px;color:var(--muted);font-weight:400;}
+  .prof-add{display:flex;gap:6px;}
+  .prof-add input{
+    flex:1;min-width:0;padding:7px 10px;border-radius:9px;border:1px solid var(--border);
+    background:var(--surface);color:var(--ink);font-family:"IBM Plex Mono",monospace;font-size:13px;outline:none;
+  }
+  .prof-add input:focus{border-color:var(--accent);}
+  .prof-add button{
+    padding:7px 12px;border-radius:9px;border:1px solid var(--accent);background:var(--accent-soft);
+    color:var(--accent-ink);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .prof-add button:disabled,.prof-del:disabled{opacity:.5;cursor:default;}
+  .item-meta .prof-meta{color:var(--accent-ink);}
 
   /* ====== Додавання нової позиції (FAB + форма) ====== */
   .add-fab{
@@ -427,6 +452,7 @@
       <button class="chip active" data-filter="all" type="button">Всі позиції</button>
       <button class="chip" data-filter="furn" type="button">Фурнітура · на складі</button>
       <button class="chip" data-filter="mat" type="button">Матеріали · на складі</button>
+      <button class="chip" data-filter="prof" type="button">Профілі · на складі</button>
     </div>
   </div>
   <div class="body" id="screenBody">
@@ -520,8 +546,9 @@ const BLOCK_GROUP = {
   "Кромка": "mat",
   "ЛДСП / ЛМДФ": "mat",
   "Стільниці": "mat",
+  "Профілі": "prof",
 };
-const STOCK_FILTER_LABEL = { all: "", furn: "фурнітура на складі", mat: "матеріали на складі" };
+const STOCK_FILTER_LABEL = { all: "", furn: "фурнітура на складі", mat: "матеріали на складі", prof: "профілі на складі" };
 
 // Повний список блоків для дропдауна у формі "Додати позицію" — той самий
 // перелік, що й у шаблоні довідника. Онови тут же, якщо змінюєш список
@@ -530,7 +557,7 @@ const BLOCKS = [
   "Петлі", "Напрямні (для шухляд)", "Механізми підйому фасадів",
   "Ручки та профілі-ручки", "Ніжки та опори",
   "Кріплення / з'єднувальна фурнітура", "Розсувні системи",
-  "Кромка", "ЛДСП / ЛМДФ", "Стільниці", "Освітлення",
+  "Кромка", "ЛДСП / ЛМДФ", "Стільниці", "Профілі", "Освітлення",
   "Доводчики / амортизатори", "Інше / нестандарт",
 ];
 
@@ -548,7 +575,7 @@ const SUPPLIER_BY_DOMAIN = {
 // ====== Стан ======
 let ITEMS = [];
 let currentItems = []; // ITEMS, відфільтровані під активний stockFilter
-let stockFilter = 'all'; // 'all' | 'furn' | 'mat'
+let stockFilter = 'all'; // 'all' | 'furn' | 'mat' | 'prof'
 let blocks = {};
 let blockNames = [];
 let currentBlock = null;
@@ -568,14 +595,37 @@ const sheetVeil = document.getElementById('sheetVeil');
 function isNumericZalyshok(z){
   return /^-?\d+([.,]\d+)?$/.test(String(z).trim());
 }
+// ====== Профілі: Залишок = список відрізків ======
+// У таблиці зберігається текстом: "2,7 м; 1,5 м" (кожен відрізок — окремо,
+// через ";"). Порожній склад — "немає". Завжди з "м", щоб Google Sheets
+// не перетворив одиничне "2.7" на число (тоді зламається QUERY у формулі).
+function isProfile(it){ return BLOCK_GROUP[it["Блок"]] === 'prof'; }
+function parsePieces(z){
+  if (z === null || z === undefined) return [];
+  return String(z).split(/[;\n]+/)
+    .map(p => parseFloat(p.replace(/[^\d.,]/g, '').replace(',', '.')))
+    .filter(n => !isNaN(n) && n > 0);
+}
+function fmtLen(n){ return String(Math.round(n * 1000) / 1000).replace('.', ','); }
+function piecesToText(pieces){
+  return pieces.length ? pieces.map(n => fmtLen(n) + ' м').join('; ') : 'немає';
+}
+function piecesSummary(pieces){
+  if (!pieces.length) return 'немає на складі';
+  const total = pieces.reduce((s, n) => s + n, 0);
+  return pieces.length + ' шт · разом ' + fmtLen(total) + ' м';
+}
+
 function inStock(it){
   const z = it["Залишок"];
+  if (isProfile(it)) return parsePieces(z).length > 0;
   if (z === null || String(z).trim() === '') return false;
   if (isNumericZalyshok(z)) return parseFloat(String(z).replace(',', '.')) > 0;
   return true; // непорожній текстовий опис — вважаємо, що є в наявності
 }
 function formatZalyshok(it){
   const z = it["Залишок"];
+  if (isProfile(it)) return piecesSummary(parsePieces(z));
   if (z === null || String(z).trim() === '') return 'немає даних';
   if (isNumericZalyshok(z)) {
     const num = parseFloat(String(z).replace(',', '.'));
@@ -664,6 +714,51 @@ async function promptMaterialChange(id){
     console.error('[stock] помилка:', err);
     alert('Не вдалось оновити залишок: ' + err.message + '\nСпробуй ще раз за хвилину.');
   }
+}
+
+// Профілі: додати/прибрати відрізок. Під капотом — та сама дія
+// 'material_text' (останній запис у "Рух складу" = поточний список),
+// тож історія хто/коли/що лишається повною.
+async function saveProfilePieces(id, pieces){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  if (!it) return;
+  const artikul = it["Артикул"];
+  if (!artikul){ alert('У цієї позиції немає артикулу — не можу оновити склад.'); return; }
+  sheet.querySelectorAll('.prof-del, .prof-add button').forEach(b => b.disabled = true);
+  try {
+    const data = await jsonpRequest(STOCK_API_URL, { action: 'material_text', artikul: artikul, text: piecesToText(pieces), who: 'сайт' });
+    console.log('[stock] відповідь:', data);
+    if (!data || data.ok !== true) throw new Error((data && data.error) || 'помилка сервера');
+    it["Залишок"] = data.zalyshok !== undefined && data.zalyshok !== null && String(data.zalyshok) !== '' ? String(data.zalyshok) : piecesToText(pieces);
+    if (sheet.classList.contains('open')) openItem(id);
+    // оновити і список під карткою (підсумок "N шт · разом X м")
+    buildIndex();
+    if (searchInput.value.trim() !== "") renderSearch(searchInput.value); else renderSearchOrHome();
+  } catch (err){
+    console.error('[stock] помилка:', err);
+    alert('Не вдалось оновити залишок: ' + err.message + '\nСпробуй ще раз за хвилину.');
+    sheet.querySelectorAll('.prof-del, .prof-add button').forEach(b => b.disabled = false);
+  }
+}
+function addProfilePieces(id){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  const input = document.getElementById('profAddInput');
+  if (!it || !input) return;
+  // можна одразу кілька: "2,7 1,5" або "2.7; 1.5"
+  const added = input.value.split(/[\s;]+/)
+    .map(v => parseFloat(v.replace(',', '.')))
+    .filter(n => !isNaN(n) && n > 0);
+  if (!added.length){ input.focus(); alert('Впиши довжину в метрах, напр. 2,7'); return; }
+  if (added.some(n => n > 12)){ if (!confirm('Довжина більше 12 м — точно в метрах, а не в мм?')) return; }
+  saveProfilePieces(id, parsePieces(it["Залишок"]).concat(added));
+}
+function removeProfilePiece(id, idx){
+  const it = ITEMS.find(x => String(x.ID) === String(id));
+  if (!it) return;
+  const pieces = parsePieces(it["Залишок"]);
+  if (!confirm('Списати відрізок ' + fmtLen(pieces[idx]) + ' м?')) return;
+  pieces.splice(idx, 1);
+  saveProfilePieces(id, pieces);
 }
 
 // ====== Додавання нової позиції (кнопка "+" внизу справа) ======
@@ -865,6 +960,16 @@ async function submitAddItem(force){
 
 function zalyshokRowHtml(it){
   const z = it["Залишок"];
+  if (isProfile(it)) {
+    const pieces = parsePieces(z);
+    const canEdit = !!it["Артикул"];
+    const chips = pieces.map((n, i) => `<span class="prof-piece">${fmtLen(n)} м${canEdit ? `<button class="prof-del" type="button" data-idx="${i}" data-id="${esc(it.ID)}" aria-label="Списати відрізок">×</button>` : ''}</span>`).join('');
+    return `<dt>Залишок</dt><dd><div class="prof-box">
+      ${pieces.length ? `<div class="prof-pieces">${chips}</div>` : ''}
+      <div class="prof-sum">${esc(piecesSummary(pieces))}</div>
+      ${canEdit ? `<div class="prof-add"><input id="profAddInput" type="text" inputmode="decimal" placeholder="довжина, м (напр. 2,7)" autocomplete="off"><button type="button" id="profAddBtn" data-id="${esc(it.ID)}">+ Додати</button></div>` : ''}
+    </div></dd>`;
+  }
   // Матеріальні блоки (ЛДСП/ЛМДФ, Кромка, Стільниці) завжди текстовий
   // опис — незалежно від того, чи вже є в Залишку якесь значення.
   // Раніше рішення приймалось тільки за поточним значенням: щойно
@@ -1028,6 +1133,7 @@ function itemRowHtml(it){
         <span>${esc(it["Постачальник"])}</span>
         <span class="dot"></span>
         <span>${price !== null ? price.toFixed(2)+' грн' : 'ціна не вказана'}</span>
+        ${isProfile(it) ? `<span class="dot"></span><span class="prof-meta">${esc(piecesSummary(parsePieces(it["Залишок"])))}</span>` : ''}
       </div>
     </div>
     <div class="chev">›</div>
@@ -1081,6 +1187,16 @@ function openItem(id){
   sheet.querySelectorAll('.editable-text').forEach(el => {
     el.addEventListener('click', () => promptMaterialChange(el.dataset.id));
   });
+  sheet.querySelectorAll('.prof-del').forEach(btn => {
+    btn.addEventListener('click', () => removeProfilePiece(btn.dataset.id, parseInt(btn.dataset.idx, 10)));
+  });
+  const profAddBtn = document.getElementById('profAddBtn');
+  if (profAddBtn){
+    profAddBtn.addEventListener('click', () => addProfilePieces(profAddBtn.dataset.id));
+    document.getElementById('profAddInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter'){ e.preventDefault(); addProfilePieces(profAddBtn.dataset.id); }
+    });
+  }
 }
 function closeSheet(){
   sheet.classList.remove('open');
