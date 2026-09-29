@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Друк: QR-наклейки і бланк складу — NODY</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#F5F1E8; --paper:#FBF8F2; --surface:#FFFFFF; --ink:#211C15; --muted:#7C7469; --faint:#A9A090;
+    --accent:#AE6B2E; --accent-ink:#5C3714; --accent-soft:#EFE0C8; --border:#E6DFD0; --line:#EDE7DA;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;}
+  .mono{font-family:"IBM Plex Mono",monospace;}
+
+  /* ====== Панель керування (на друк не йде) ====== */
+  .controls{max-width:1100px;margin:0 auto;padding:16px;}
+  h1{font-size:20px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .tab{border:1px solid var(--border);background:var(--paper);color:var(--muted);font:inherit;font-weight:600;
+    padding:8px 14px;border-radius:100px;cursor:pointer;}
+  .tab.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;}
+  .row input[type=text], .row select, .row input[type=number]{
+    font:inherit;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);
+  }
+  .row input[type=text]{flex:1;min-width:180px;}
+  .row input[type=number]{width:70px;}
+  .btn{font:inherit;font-weight:600;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--paper);color:var(--ink);cursor:pointer;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .list{max-height:320px;overflow:auto;border-top:1px solid var(--line);margin-top:6px;}
+  .group{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:10px 2px 4px;display:flex;gap:8px;align-items:center;}
+  .group button{font:inherit;font-size:11px;text-transform:none;letter-spacing:0;color:var(--accent-ink);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;}
+  .it{display:flex;gap:8px;align-items:flex-start;padding:5px 2px;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer;}
+  .it input{margin-top:3px;}
+  .it .art{color:var(--accent-ink);font-size:12px;white-space:nowrap;}
+  .count{font-size:13px;color:var(--muted);}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px;}
+  .preview-title{max-width:1100px;margin:6px auto 8px;padding:0 16px;font-size:12px;color:var(--muted);}
+
+  /* ====== Аркуші A4 (екран = прев'ю, друк = як є) ====== */
+  .sheets{display:flex;flex-direction:column;align-items:center;gap:16px;padding:0 16px 40px;}
+  .a4{width:210mm;height:297mm;background:#fff;color:#000;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden;position:relative;}
+  /* Наклейки: 3 × 8 = 24 шт по 70 × 37 мм (стандартний аркуш самоклейки A4/24) */
+  .labels{display:grid;grid-template-columns:repeat(3,70mm);grid-auto-rows:37.125mm;}
+  .lbl{padding:2.5mm 3mm;display:flex;gap:2.5mm;align-items:center;border:0.2mm dashed #d8d8d8;overflow:hidden;}
+  .lbl.empty{border-color:#f1f1f1;}
+  .lbl svg{width:29mm;height:29mm;flex-shrink:0;}
+  .lbl .t{min-width:0;display:flex;flex-direction:column;gap:1mm;}
+  .lbl .art{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:10.5pt;line-height:1.1;word-break:break-all;}
+  .lbl .name{font-size:7pt;line-height:1.2;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+  .lbl .blk{font-size:6pt;color:#666;text-transform:uppercase;letter-spacing:.03em;}
+  .lbl .scan{font-size:6pt;color:#666;}
+
+  /* Бланк */
+  .blank{padding:12mm 12mm 10mm;font-size:10pt;}
+  .blank h2{font-size:15pt;margin:0 0 1.5mm;}
+  .blank .rules{font-size:8.5pt;color:#333;margin-bottom:4mm;line-height:1.45;}
+  .blank table{width:100%;border-collapse:collapse;table-layout:fixed;}
+  .blank th{font-size:8pt;text-align:left;padding:1.5mm;border:0.3mm solid #000;background:#f0f0f0;}
+  .blank td{height:9.6mm;border:0.3mm solid #000;}
+  .blank .foot{margin-top:4mm;font-size:9pt;display:flex;justify-content:space-between;}
+
+  .hidden{display:none !important;}
+
+  @media print{
+    @page{size:A4;margin:0;}
+    body{background:#fff;}
+    .controls,.preview-title{display:none !important;}
+    .sheets{padding:0;gap:0;display:block;}
+    .a4{box-shadow:none;page-break-after:always;break-after:page;}
+    .a4:last-child{page-break-after:auto;break-after:auto;}
+    .lbl{border-color:transparent;}
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>Друк для складу</h1>
+  <div class="sub">QR-наклейки на ящики (скан → картка позиції → «−») і паперовий бланк на випадок без телефона.</div>
+  <div class="tabs">
+    <button class="tab active" data-mode="labels" type="button">QR-наклейки</button>
+    <button class="tab" data-mode="blank" type="button">Паперовий бланк</button>
+  </div>
+
+  <div class="panel" id="labelsPanel">
+    <div class="row">
+      <input type="text" id="q" placeholder="Пошук за назвою або артикулом…" autocomplete="off">
+      <select id="blockSel"><option value="">Всі блоки</option></select>
+    </div>
+    <div class="row">
+      <button class="btn" id="selAll" type="button">Вибрати всі видимі</button>
+      <button class="btn" id="selNone" type="button">Зняти всі</button>
+      <label class="count">Пропустити перших <input type="number" id="skip" min="0" max="23" value="0"> наклейок</label>
+      <span class="count" id="countInfo"></span>
+      <button class="btn primary" id="printLabels" type="button">Друкувати наклейки</button>
+    </div>
+    <div class="list" id="list"><div class="count" style="padding:10px 2px">Завантаження довідника…</div></div>
+    <div class="hint">
+      Аркуш — самоклейка A4 на 24 наклейки (70 × 37 мм). Друк: масштаб 100 %, поля «Немає», без колонтитулів.<br>
+      «Пропустити перших N» — якщо частину аркуша вже використали, щоб друк почався з першої вільної наклейки.<br>
+      QR веде на сайт за артикулом, тож наклейка лишається правильною, навіть якщо зміниться ціна чи назва.
+    </div>
+  </div>
+
+  <div class="panel hidden" id="blankPanel">
+    <div class="row">
+      <label class="count">Аркушів <input type="number" id="blankCount" min="1" max="20" value="2"></label>
+      <button class="btn primary" id="printBlank" type="button">Друкувати бланк</button>
+    </div>
+    <div class="hint">Бланк висить біля складу, один на цех. Одна відповідальна людина щодня в кінці зміни переносить рядки на сайт і ставить ✓.</div>
+  </div>
+</div>
+
+<div class="preview-title" id="previewTitle">Прев'ю друку</div>
+<div class="sheets" id="sheets"></div>
+
+<script>
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRU218FxxaXiCYx1Rehj4ZohMJUwbxYVpi_MKAYPKTkVsfTCzcqYhjB2b3m6iVm5UifjiwC272nFIe5/pub?gid=1084815945&single=true&output=csv";
+const SITE_URL = "https://vladbondarev77-dev.github.io/TZ_NODY/";
+const PER_SHEET = 24;
+
+function parseCSV(text){
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i], n = text[i+1];
+    if (q){ if (c === '"' && n === '"'){ field += '"'; i++; } else if (c === '"') q = false; else field += c; }
+    else if (c === '"') q = true;
+    else if (c === ','){ row.push(field); field = ''; }
+    else if (c === '\r'){}
+    else if (c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  const h = rows[0].map(x => x.trim());
+  return rows.slice(1).filter(r => r.some(v => v !== '')).map(r => {
+    const o = {}; h.forEach((k, i) => o[k] = (r[i] || '').trim()); return o;
+  });
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// QR як SVG (векторний — чіткий при друку)
+function qrSvg(text){
+  const qr = qrcode(0, 'M');
+  qr.addData(unescape(encodeURIComponent(text))); // UTF-8 для кириличних артикулів
+  qr.make();
+  const n = qr.getModuleCount(), m = 2;
+  let d = '';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c+m} ${r+m}h1v1h-1z`;
+  return `<svg viewBox="0 0 ${n+2*m} ${n+2*m}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+function itemUrl(it){ return SITE_URL + '?a=' + encodeURIComponent(it.art); }
+
+let ITEMS = [];
+const selected = new Set();
+let mode = 'labels';
+
+const $ = id => document.getElementById(id);
+const listEl = $('list'), sheetsEl = $('sheets');
+
+function visible(){
+  const q = $('q').value.trim().toLowerCase(), b = $('blockSel').value;
+  return ITEMS.filter(it => (!b || it.block === b) && (!q || it.name.toLowerCase().includes(q) || it.art.toLowerCase().includes(q)));
+}
+
+function renderList(){
+  const vis = visible();
+  const byBlock = {};
+  vis.forEach(it => (byBlock[it.block] = byBlock[it.block] || []).push(it));
+  listEl.innerHTML = Object.keys(byBlock).sort().map(b => `
+    <div class="group">${esc(b)} · ${byBlock[b].length}<button type="button" data-block="${esc(b)}">вибрати блок</button></div>
+    ${byBlock[b].map(it => `<label class="it"><input type="checkbox" data-k="${esc(it.key)}" ${selected.has(it.key)?'checked':''}>
+      <span class="art mono">${esc(it.art)}</span><span>${esc(it.name)}</span></label>`).join('')}
+  `).join('') || '<div class="count" style="padding:10px 2px">Нічого не знайдено</div>';
+  listEl.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', () => {
+    cb.checked ? selected.add(cb.dataset.k) : selected.delete(cb.dataset.k); renderSheets();
+  }));
+  listEl.querySelectorAll('.group button').forEach(btn => btn.addEventListener('click', () => {
+    vis.filter(it => it.block === btn.dataset.block).forEach(it => selected.add(it.key)); renderList(); renderSheets();
+  }));
+}
+
+function renderSheets(){
+  if (mode === 'blank'){
+    const n = Math.max(1, Math.min(20, parseInt($('blankCount').value, 10) || 1));
+    const rows = Array.from({length: 24}, () => '<tr><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+    const page = `<div class="a4 blank">
+      <h2>Склад NODY — рух фурнітури (бланк)</h2>
+      <div class="rules">Тільки якщо немає телефона. Основний спосіб — скан QR на ящику → «−» на сайті.<br>
+        Артикул переписуй <b>з наклейки на ящику</b>, не своїми словами. К-сть: <b>−</b> взяв, <b>+</b> поклав. Для профілю — довжина відрізка, напр. «−1,2 м».</div>
+      <table>
+        <colgroup><col style="width:13%"><col style="width:19%"><col style="width:30%"><col style="width:13%"><col style="width:15%"><col style="width:10%"></colgroup>
+        <tr><th>Дата</th><th>Артикул (з наклейки)</th><th>Що (коротко)</th><th>К-сть −/+</th><th>Хто</th><th>Внесено ✓</th></tr>
+        ${rows}
+      </table>
+      <div class="foot"><span>Переносить на сайт: ____________________ (щодня, кінець зміни)</span><span>Внесені рядки — закреслити</span></div>
+    </div>`;
+    sheetsEl.innerHTML = page.repeat(n);
+    $('previewTitle').textContent = `Прев'ю друку · ${n} арк.`;
+    return;
+  }
+  const chosen = ITEMS.filter(it => selected.has(it.key));
+  const skip = Math.max(0, Math.min(PER_SHEET - 1, parseInt($('skip').value, 10) || 0));
+  const cells = Array(skip).fill(null).concat(chosen);
+  $('countInfo').textContent = `вибрано ${chosen.length}`;
+  if (!chosen.length){
+    sheetsEl.innerHTML = '';
+    $('previewTitle').textContent = 'Вибери позиції зі списку — тут з\'явиться прев\'ю аркушів';
+    return;
+  }
+  let html = '';
+  for (let p = 0; p < cells.length; p += PER_SHEET){
+    const slice = cells.slice(p, p + PER_SHEET);
+    while (slice.length < PER_SHEET) slice.push(null);
+    html += `<div class="a4 labels">${slice.map(it => it ? `<div class="lbl">${qrSvg(itemUrl(it))}
+      <div class="t"><div class="art">${esc(it.art)}</div><div class="name">${esc(it.name)}</div><div class="blk">${esc(it.block)}</div><div class="scan">скануй → «−» на сайті</div></div></div>`
+      : '<div class="lbl empty"></div>').join('')}</div>`;
+  }
+  sheetsEl.innerHTML = html;
+  const pages = Math.ceil(cells.length / PER_SHEET);
+  $('previewTitle').textContent = `Прев'ю друку · ${chosen.length} наклейок · ${pages} арк.`;
+}
+
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  mode = t.dataset.mode;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  $('labelsPanel').classList.toggle('hidden', mode !== 'labels');
+  $('blankPanel').classList.toggle('hidden', mode !== 'blank');
+  renderSheets();
+}));
+$('q').addEventListener('input', renderList);
+$('blockSel').addEventListener('change', renderList);
+$('skip').addEventListener('input', renderSheets);
+$('blankCount').addEventListener('input', renderSheets);
+$('selAll').addEventListener('click', () => { visible().forEach(it => selected.add(it.key)); renderList(); renderSheets(); });
+$('selNone').addEventListener('click', () => { selected.clear(); renderList(); renderSheets(); });
+$('printLabels').addEventListener('click', () => window.print());
+$('printBlank').addEventListener('click', () => window.print());
+
+(async function load(){
+  try {
+    const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    ITEMS = parseCSV(await res.text())
+      .filter(r => (r['Статус'] || '').toLowerCase() === 'активна' && r['Артикул'])
+      .map((r, i) => ({ key: 'k' + i, art: r['Артикул'], name: r['Назва'] || '', block: r['Блок'] || 'Без блоку' }));
+    const blocks = [...new Set(ITEMS.map(it => it.block))].sort();
+    $('blockSel').innerHTML += blocks.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+    renderList(); renderSheets();
+  } catch (err){
+    listEl.innerHTML = `<div class="count" style="padding:10px 2px">Не вдалось завантажити довідник: ${esc(err.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>
