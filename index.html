@@ -1010,6 +1010,19 @@ function findField(r, ...candidates){
   return '';
 }
 
+// ====== Відкриття позиції за посиланням (QR-наклейки на ящиках) ======
+// .../TZ_NODY/?a=АРТИКУЛ — одразу відкриває картку цієї позиції.
+// Якщо з таким артикулом кілька позицій — показує їх списком.
+function openFromLink(){
+  let art = '';
+  try { art = (new URLSearchParams(location.search).get('a') || '').trim(); } catch(e) {}
+  if (!art) return;
+  const matches = ITEMS.filter(it => String(it["Артикул"]).trim() === art);
+  if (matches.length === 1){ openItem(matches[0].ID); return; }
+  searchInput.value = art;
+  renderSearch(art);
+}
+
 async function loadData(){
   try {
     const res = await fetch(SHEET_CSV_URL, { cache: 'no-store' });
@@ -1035,6 +1048,15 @@ async function loadData(){
         Коментар: r['Коментар'] || '',
         'Посилання на товар': findField(r, 'Посилання на товар', 'Відповідальний', 'Посилання', 'Посилання на сайт постачальника')
       }));
+    // ID у таблиці іноді дублюються (напр. кілька рядків з ID 2) — тоді
+    // тап по позиції відкривав би чужу картку. Робимо ID унікальним лише
+    // всередині сайту; склад усе одно працює по Артикулу, не по ID.
+    const seenIds = {};
+    ITEMS.forEach((it, i) => {
+      const k = String(it.ID);
+      if (seenIds[k]) it.ID = k + '~' + (i + 1);
+      seenIds[String(it.ID)] = true;
+    });
     if (!ITEMS.length){
       screenBody.innerHTML = `<div class="state-msg">У таблиці поки немає активних позицій.<br>Перевірте колонку "Статус" — має бути "Активна".</div>`;
       screenSub.textContent = '0 позицій';
@@ -1042,6 +1064,7 @@ async function loadData(){
     }
     buildIndex();
     renderBlocksScreen();
+    openFromLink();
   } catch (err){
     screenBody.innerHTML = `<div class="state-msg">Не вдалось завантажити довідник.<br><span class="mono" style="font-size:11px">${esc(err.message)}</span><br><button onclick="loadData()">Спробувати ще раз</button></div>`;
     screenSub.textContent = 'помилка завантаження';
